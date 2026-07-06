@@ -47,8 +47,8 @@ jobs:
 
       - name: Install dependencies
         run: |
-          npm install ../divine-data-models
           npm install
+          npm install ../divine-data-models
         working-directory: divine-backend
 
       - name: Wait for PostgreSQL
@@ -73,6 +73,6 @@ jobs:
           RAZORPAY_KEY_ID: mock
           RAZORPAY_KEY_SECRET: mock
         run: |
-          npm run db:migrate
-          npm test
+          npm run db:migrate > migration.log 2>&1 || (cat migration.log && exit 1)
+          npm test > test.log 2>&1 || (cat test.log && exit 1)
         working-directory: divine-backend

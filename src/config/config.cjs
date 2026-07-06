@@ -9,8 +9,10 @@ const baseConfig = {
   },
 };
 
+const loggingOption = process.env.CI === 'true' ? false : console.log;
+
 const devConfig = process.env.DATABASE_URL
-  ? { ...baseConfig, use_env_variable: 'DATABASE_URL', logging: console.log }
+  ? { ...baseConfig, use_env_variable: 'DATABASE_URL', logging: loggingOption }
   : {
       ...baseConfig,
       username: process.env.DB_USER || 'postgres',
@@ -18,7 +20,7 @@ const devConfig = process.env.DATABASE_URL
       database: process.env.DB_NAME || 'divinegarbh_sanskar',
       host: process.env.DB_HOST || '127.0.0.1',
       port: parseInt(process.env.DB_PORT, 10) || 5432,
-      logging: console.log,
+      logging: loggingOption,
     };
 
 const prodConfig = process.env.DATABASE_URL
