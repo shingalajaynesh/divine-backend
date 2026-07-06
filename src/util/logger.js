@@ -2,7 +2,7 @@ import winston from 'winston';
 import util from 'util';
 import { AsyncLocalStorage } from 'async_hooks';
 
-const isDevelopment = process.env.NODE_ENV !== 'production';
+const isDevelopment = process.env.NODE_ENV !== 'production' || process.env.LOG_FORMAT === 'dev';
 const { LOG_LEVEL = 'info' } = process.env;
 
 // AsyncLocalStorage to hold request-scoped logging context

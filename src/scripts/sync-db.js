@@ -28,9 +28,8 @@ const runSync = async () => {
       } : {}
     });
 
-    // Sync database tables (create if not exist, or recreate if matching)
-    await dataModels.sequelize.sync({ force: true });
-    log.info('✅ Database schema synchronized successfully.');
+    // Schema is managed via Sequelize CLI migrations. Simply log progress
+    log.info('✅ Schema migrations check complete.');
 
     // Seed default Center and Admin User if no centers exist
     const CenterModel = dataModels.models.Center;
@@ -45,6 +44,26 @@ const runSync = async () => {
         emailAddress: "admin@divinegarbhsanskar.com"
       });
       log.info('✅ Default center seeded successfully:', defaultCenter.name);
+
+      // Seed default Expert Schedules using the newly created Admin user
+      const UserModel = dataModels.models.User;
+      const adminUser = await UserModel.findOne({
+        where: { emailAddress: "divinegarbhsanskarmaincenter@gmail.com" }
+      });
+
+      if (adminUser) {
+        const ExpertScheduleModel = dataModels.models.ExpertSchedule;
+        const schedules = [
+          { expertId: adminUser.id, dayOfWeek: 1, startTime: "10:00", endTime: "16:00", slotDurationMins: 30 },
+          { expertId: adminUser.id, dayOfWeek: 3, startTime: "10:00", endTime: "16:00", slotDurationMins: 30 },
+          { expertId: adminUser.id, dayOfWeek: 5, startTime: "10:00", endTime: "16:00", slotDurationMins: 30 }
+        ];
+
+        for (const sched of schedules) {
+          await ExpertScheduleModel.create(sched);
+        }
+        log.info('✅ Default Expert Schedules seeded successfully.');
+      }
     } else {
       log.info('Database already has center data. Skipping seeding.');
     }

@@ -2,8 +2,9 @@ import http from 'http';
 import express from 'express';
 import dotenv from 'dotenv';
 import cors from 'cors';
+import { v4 as uuidv4 } from 'uuid';
 import { DataModels } from 'divine-data-models';
-import Logger from './util/logger.js';
+import Logger, { runWithContext } from './util/logger.js';
 import bootstrapApollo from './middlewares/apollo/index.js';
 
 dotenv.config();
@@ -39,10 +40,14 @@ const startServer = async () => {
 
     // Inject database models and connection into the express request object
     app.use((req, res, next) => {
-      req.models = dataModels.models;
-      req.sequelize = dataModels.sequelize;
-      req.logger = new Logger('Request');
-      next();
+      const requestId = uuidv4();
+      runWithContext({ requestId }, () => {
+        req.models = dataModels.models;
+        req.sequelize = dataModels.sequelize;
+        req.logger = new Logger('Request');
+        req.requestId = requestId;
+        next();
+      });
     });
 
     // Health check endpoint
