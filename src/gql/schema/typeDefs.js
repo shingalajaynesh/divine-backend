@@ -59,6 +59,8 @@ export const typeDefs = `#graphql
     id: ID!
     user: User!
     content: String!
+    reported: Boolean!
+    reportsCount: Int!
     createdAt: String!
   }
 
@@ -67,7 +69,12 @@ export const typeDefs = `#graphql
     user: User!
     title: String!
     content: String!
+    category: String!
     likesCount: Int!
+    likedByUsers: String!
+    isLiked: Boolean!
+    reported: Boolean!
+    reportsCount: Int!
     comments: [ForumComment!]!
     createdAt: String!
   }
@@ -521,7 +528,7 @@ export const typeDefs = `#graphql
     getDailyContent(dayNumber: Int!): DailyContent
     getContentLibrary(category: String!): [DailyContent!]!
     getBabyDevelopment(weekNumber: Int!): BabyDevelopment
-    getForumPosts: [ForumPost!]!
+    getForumPosts(category: String): [ForumPost!]!
     getLiveClasses: [LiveClass!]!
     getGuidedAudioSessions: [DailyContent!]!
     getMyDevices: [RegisteredDevice!]!
@@ -568,8 +575,11 @@ export const typeDefs = `#graphql
     syncUser: User!
     updateUser(id: ID!, firstName: String, lastName: String, displayName: String, mobileNo: String): User!
     saveOnboarding(lmpDate: String, dueDate: String, language: String!): User!
-    addForumPost(title: String!, content: String!): ForumPost!
+    addForumPost(title: String!, content: String!, category: String): ForumPost!
     addForumComment(postId: ID!, content: String!): ForumComment!
+    togglePostLike(postId: ID!): ForumPost!
+    reportPost(postId: ID!): ForumPost!
+    reportComment(commentId: ID!): ForumComment!
     bookLiveClass(classId: ID!): LiveClass!
     createStripeCheckout(plan: String!): String!
     adminAddContent(
