@@ -1,5 +1,6 @@
 import { ApolloServer } from '@apollo/server';
-import { ApolloServerPluginLandingPageDisabled, ApolloServerPluginLandingPageLocalDefault } from 'apollo-server-core';
+import { ApolloServerPluginLandingPageDisabled } from '@apollo/server/plugin/disabled';
+import { ApolloServerPluginLandingPageLocalDefault } from '@apollo/server/plugin/landingPage/default';
 import express from 'express';
 import cors from 'cors';
 import { v4 as uuidv4 } from 'uuid';
