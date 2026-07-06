@@ -139,7 +139,58 @@ export const typeDefs = `#graphql
     diastolicBp: Int
     kickCount: Int
     bloodSugar: Float
+    symptoms: String
     loggedAt: String!
+  }
+
+  type HospitalBagItem {
+    id: ID!
+    itemName: String!
+    packed: Boolean!
+    category: String!
+  }
+
+  type Appointment {
+    id: ID!
+    title: String!
+    doctorName: String
+    appointmentDate: String!
+    notes: String
+  }
+
+  type MedicineReminder {
+    id: ID!
+    name: String!
+    dosage: String!
+    timeOfDay: String!
+    active: Boolean!
+  }
+
+  input LogVitalsAndSymptomsInput {
+    weight: Float
+    systolicBp: Int
+    diastolicBp: Int
+    kickCount: Int
+    bloodSugar: Float
+    symptoms: [String!]
+  }
+
+  input AddAppointmentInput {
+    title: String!
+    doctorName: String
+    appointmentDate: String!
+    notes: String
+  }
+
+  input AddMedicineInput {
+    name: String!
+    dosage: String!
+    timeOfDay: String!
+  }
+
+  input AddHospitalBagItemInput {
+    itemName: String!
+    category: String
   }
 
   type Payment {
@@ -174,6 +225,109 @@ export const typeDefs = `#graphql
     bookingId: ID!
     caseNotes: String!
     followUpTasks: [String!]
+  }
+
+  type SupportTicket {
+    id: ID!
+    subject: String!
+    description: String!
+    status: String!
+    priority: String!
+    category: String!
+    satisfactionScore: Int
+    satisfactionFeedback: String
+    whatsappHandoffRequested: Boolean!
+    slaBreached: Boolean!
+    slaExpiresAt: String!
+    createdAt: String!
+    messages: [SupportTicketMessage!]!
+  }
+
+  type SupportTicketMessage {
+    id: ID!
+    ticketId: ID!
+    senderId: ID!
+    senderType: String!
+    message: String!
+    createdAt: String!
+    sender: User
+  }
+
+  input CreateSupportTicketInput {
+    subject: String!
+    description: String!
+    priority: String
+    category: String
+  }
+
+  input AddSupportTicketMessageInput {
+    ticketId: ID!
+    message: String!
+  }
+
+  input CloseSupportTicketInput {
+    ticketId: ID!
+    satisfactionScore: Int
+    satisfactionFeedback: String
+  }
+
+  type Product {
+    id: ID!
+    title: String!
+    description: String
+    price: Float!
+    imageUrl: String
+    inventoryCount: Int!
+    category: String!
+  }
+
+  type CartItem {
+    id: ID!
+    productId: ID!
+    quantity: Int!
+    product: Product!
+  }
+
+  type UserAddress {
+    id: ID!
+    fullName: String!
+    addressLine1: String!
+    addressLine2: String
+    city: String!
+    state: String!
+    postalCode: String!
+    phone: String!
+  }
+
+  type StoreOrder {
+    id: ID!
+    totalAmount: Float!
+    status: String!
+    createdAt: String!
+    address: UserAddress
+    items: [StoreOrderItem!]!
+  }
+
+  type StoreOrderItem {
+    id: ID!
+    quantity: Int!
+    price: Float!
+    product: Product!
+  }
+
+  input AddAddressInput {
+    fullName: String!
+    addressLine1: String!
+    addressLine2: String
+    city: String!
+    state: String!
+    postalCode: String!
+    phone: String!
+  }
+
+  input CartItemInput {
+    productId: ID!
+    quantity: Int!
   }
 
   type InquiryResponse {
@@ -569,6 +723,15 @@ export const typeDefs = `#graphql
     getShoppingList: [ShoppingListItem!]!
     getLiveClassesDetailed: [LiveClass!]!
     getPrescriptionSummary: [ConsultationBooking!]!
+    getAppointments: [Appointment!]!
+    getMedicineReminders: [MedicineReminder!]!
+    getHospitalBagItems: [HospitalBagItem!]!
+    getSupportTickets: [SupportTicket!]!
+    getSupportTicketDetails(id: ID!): SupportTicket
+    getProducts: [Product!]!
+    getCart: [CartItem!]!
+    getAddresses: [UserAddress!]!
+    getMyOrders: [StoreOrder!]!
   }
 
   type Mutation {
@@ -651,5 +814,24 @@ export const typeDefs = `#graphql
     submitLiveClassFeedback(input: SubmitLiveClassFeedbackInput!): LiveClassBooking!
     updateLiveClassReplay(liveClassId: ID!, replayUrl: String!): LiveClass!
     submitCaseNotes(input: SubmitCaseNotesInput!): ConsultationBooking!
+    logVitalsAndSymptoms(input: LogVitalsAndSymptomsInput!): VitalsLog!
+    addAppointment(input: AddAppointmentInput!): Appointment!
+    deleteAppointment(id: ID!): Boolean!
+    addMedicineReminder(input: AddMedicineInput!): MedicineReminder!
+    toggleMedicineReminder(id: ID!, active: Boolean!): MedicineReminder!
+    deleteMedicineReminder(id: ID!): Boolean!
+    addHospitalBagItem(input: AddHospitalBagItemInput!): HospitalBagItem!
+    toggleHospitalBagItem(id: ID!, packed: Boolean!): HospitalBagItem!
+    clearPackedHospitalBagItems: Boolean!
+    createSupportTicket(input: CreateSupportTicketInput!): SupportTicket!
+    addSupportTicketMessage(input: AddSupportTicketMessageInput!): SupportTicketMessage!
+    closeSupportTicket(input: CloseSupportTicketInput!): SupportTicket!
+    requestWhatsappHandoff(id: ID!): SupportTicket!
+    addToCart(input: CartItemInput!): CartItem!
+    updateCartQuantity(input: CartItemInput!): CartItem!
+    removeFromCart(productId: ID!): Boolean!
+    addAddress(input: AddAddressInput!): UserAddress!
+    deleteAddress(id: ID!): Boolean!
+    placeOrder(addressId: ID!): StoreOrder!
   }
 `;

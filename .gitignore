@@ -2,4 +2,7 @@ node_modules/
 .env
 .env.local
 *.log
+npm-debug.log*
 .DS_Store
+.idea/
+.vscode/

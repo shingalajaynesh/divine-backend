@@ -13,6 +13,9 @@ import { notificationResolvers } from './resolvers/notification.js';
 import { timelineResolvers } from './resolvers/timeline.js';
 import { playlistResolvers } from './resolvers/playlist.js';
 import { dietResolvers } from './resolvers/diet.js';
+import { wellnessResolvers } from './resolvers/wellness.js';
+import { supportResolvers } from './resolvers/support.js';
+import { storeResolvers } from './resolvers/store.js';
 
 export const resolvers = {
   User: {
@@ -48,6 +51,21 @@ export const resolvers = {
   TimelineOverview: {
     ...timelineResolvers.TimelineOverview,
   },
+  VitalsLog: {
+    ...wellnessResolvers.VitalsLog,
+  },
+  Appointment: {
+    ...wellnessResolvers.Appointment,
+  },
+  SupportTicket: {
+    ...supportResolvers.SupportTicket,
+  },
+  SupportTicketMessage: {
+    ...supportResolvers.SupportTicketMessage,
+  },
+  StoreOrder: {
+    ...storeResolvers.StoreOrder,
+  },
   Query: {
     ...userResolvers.Query,
     ...contentResolvers.Query,
@@ -64,6 +82,9 @@ export const resolvers = {
     ...timelineResolvers.Query,
     ...playlistResolvers.Query,
     ...dietResolvers.Query,
+    ...wellnessResolvers.Query,
+    ...supportResolvers.Query,
+    ...storeResolvers.Query,
   },
   Mutation: {
     ...userResolvers.Mutation,
@@ -81,5 +102,8 @@ export const resolvers = {
     ...timelineResolvers.Mutation,
     ...playlistResolvers.Mutation,
     ...dietResolvers.Mutation,
+    ...wellnessResolvers.Mutation,
+    ...supportResolvers.Mutation,
+    ...storeResolvers.Mutation,
   }
 };
