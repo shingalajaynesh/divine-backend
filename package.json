@@ -26,7 +26,7 @@
     "uuid": "^10.0.0",
     "winston": "^3.17.0",
     "ws": "^8.18.0",
-    "divine-data-models": "file:../divine-data-models"
+    "divine-data-models": "github:shingalajaynesh/divine-data-models"
   },
   "devDependencies": {
     "nodemon": "^3.1.9"
