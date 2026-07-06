@@ -299,6 +299,16 @@ export const typeDefs = `#graphql
     phone: String!
   }
 
+  type StoreOrderReturn {
+    id: ID!
+    orderId: ID!
+    reason: String!
+    status: String!
+    adminNotes: String
+    createdAt: String!
+    updatedAt: String!
+  }
+
   type StoreOrder {
     id: ID!
     totalAmount: Float!
@@ -306,6 +316,12 @@ export const typeDefs = `#graphql
     createdAt: String!
     address: UserAddress
     items: [StoreOrderItem!]!
+    carrier: String
+    trackingNumber: String
+    estimatedDeliveryDate: String
+    shippedAt: String
+    deliveredAt: String
+    returnRequest: StoreOrderReturn
   }
 
   type StoreOrderItem {
@@ -313,6 +329,72 @@ export const typeDefs = `#graphql
     quantity: Int!
     price: Float!
     product: Product!
+  }
+
+  type SubscriptionPlan {
+    id: ID!
+    name: String!
+    description: String
+    price: Float!
+    billingPeriod: String!
+    trialDays: Int!
+    features: [String!]!
+  }
+
+  type UserSubscription {
+    id: ID!
+    userId: ID!
+    planId: ID!
+    status: String!
+    trialStartDate: String
+    trialEndDate: String
+    currentPeriodStartDate: String!
+    currentPeriodEndDate: String!
+    cancelledAt: String
+    plan: SubscriptionPlan
+  }
+
+  type Coupon {
+    id: ID!
+    code: String!
+    discountPercent: Int
+    discountAmount: Float
+    validFrom: String!
+    validUntil: String!
+    maxRedemptions: Int
+    redemptionsCount: Int!
+  }
+
+  type CrmUser {
+    id: ID!
+    displayName: String!
+    email: String!
+    phone: String
+    pregnancyStartDate: String
+    pregnancyDay: Int
+    role: Role
+    subscriptions: [UserSubscription!]!
+  }
+
+  type CrmNote {
+    id: ID!
+    userId: ID!
+    authorId: ID!
+    note: String!
+    createdAt: String!
+    updatedAt: String!
+    author: User
+  }
+
+  type AdminAuditLog {
+    id: ID!
+    userId: ID!
+    action: String!
+    targetType: String
+    targetId: String
+    payload: String
+    createdAt: String!
+    user: User
   }
 
   input AddAddressInput {
@@ -732,6 +814,13 @@ export const typeDefs = `#graphql
     getCart: [CartItem!]!
     getAddresses: [UserAddress!]!
     getMyOrders: [StoreOrder!]!
+    getAdminOrders: [StoreOrder!]!
+    getPlans: [SubscriptionPlan!]!
+    getMySubscription: UserSubscription
+    validateCoupon(code: String!): Coupon
+    getCrmUsers: [CrmUser!]!
+    getCrmNotes(userId: ID!): [CrmNote!]!
+    getAuditLogs: [AdminAuditLog!]!
   }
 
   type Mutation {
@@ -833,5 +922,14 @@ export const typeDefs = `#graphql
     addAddress(input: AddAddressInput!): UserAddress!
     deleteAddress(id: ID!): Boolean!
     placeOrder(addressId: ID!): StoreOrder!
+    updateOrderTracking(orderId: ID!, carrier: String!, trackingNumber: String!, estimatedDeliveryDate: String): StoreOrder!
+    updateOrderStatus(orderId: ID!, status: String!): StoreOrder!
+    requestOrderReturn(orderId: ID!, reason: String!): StoreOrderReturn!
+    reviewOrderReturn(orderReturnId: ID!, status: String!, adminNotes: String): StoreOrderReturn!
+    startTrial(planId: ID!): UserSubscription!
+    subscribeToPlan(planId: ID!, couponCode: String): UserSubscription!
+    cancelSubscription: UserSubscription!
+    addCrmNote(userId: ID!, note: String!): CrmNote!
+    logAdminAction(action: String!, targetType: String, targetId: String, payload: String): AdminAuditLog!
   }
 `;

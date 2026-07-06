@@ -191,9 +191,99 @@ export class StoreService {
           model: this.models.StoreOrderItem, 
           as: 'items',
           include: [{ model: this.models.Product, as: 'product' }]
+        },
+        {
+          model: this.models.StoreOrderReturn,
+          as: 'returnRequest'
         }
       ],
       order: [['createdAt', 'DESC']]
     });
+  }
+
+  async getAdminOrders() {
+    return this.models.StoreOrder.findAll({
+      include: [
+        { model: this.models.User, as: 'user' },
+        { model: this.models.UserAddress, as: 'address' },
+        { 
+          model: this.models.StoreOrderItem, 
+          as: 'items',
+          include: [{ model: this.models.Product, as: 'product' }]
+        },
+        {
+          model: this.models.StoreOrderReturn,
+          as: 'returnRequest'
+        }
+      ],
+      order: [['createdAt', 'DESC']]
+    });
+  }
+
+  async updateOrderTracking(orderId, carrier, trackingNumber, estimatedDeliveryDate) {
+    const order = await this.models.StoreOrder.findByPk(orderId);
+    if (!order) throw new Error('Order not found');
+
+    order.carrier = carrier;
+    order.trackingNumber = trackingNumber;
+    if (estimatedDeliveryDate) {
+      order.estimatedDeliveryDate = new Date(estimatedDeliveryDate);
+    }
+    await order.save();
+    return order;
+  }
+
+  async updateOrderStatus(orderId, status) {
+    const order = await this.models.StoreOrder.findByPk(orderId);
+    if (!order) throw new Error('Order not found');
+
+    order.status = status;
+    if (status === 'shipped') {
+      order.shippedAt = new Date();
+    } else if (status === 'delivered') {
+      order.deliveredAt = new Date();
+    }
+    await order.save();
+    return order;
+  }
+
+  async requestOrderReturn(userId, orderId, reason) {
+    const order = await this.models.StoreOrder.findOne({
+      where: { id: orderId, userId }
+    });
+    if (!order) throw new Error('Order not found');
+    if (order.status !== 'delivered') {
+      throw new Error('Only delivered orders can be returned');
+    }
+
+    const existingReturn = await this.models.StoreOrderReturn.findOne({
+      where: { orderId }
+    });
+    if (existingReturn) throw new Error('Return request already submitted for this order');
+
+    return this.models.StoreOrderReturn.create({
+      orderId,
+      reason,
+      status: 'requested'
+    });
+  }
+
+  async reviewOrderReturn(orderReturnId, status, adminNotes) {
+    const ret = await this.models.StoreOrderReturn.findByPk(orderReturnId);
+    if (!ret) throw new Error('Return request not found');
+
+    ret.status = status;
+    if (adminNotes) ret.adminNotes = adminNotes;
+    await ret.save();
+
+    if (status === 'approved' || status === 'refunded') {
+      const order = await this.models.StoreOrder.findByPk(ret.orderId);
+      if (order) {
+        order.status = 'cancelled'; // refund transitions to cancelled
+        await order.save();
+      }
+    }
+
+    return ret;
   }
 }

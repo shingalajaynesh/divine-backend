@@ -16,6 +16,8 @@ import { dietResolvers } from './resolvers/diet.js';
 import { wellnessResolvers } from './resolvers/wellness.js';
 import { supportResolvers } from './resolvers/support.js';
 import { storeResolvers } from './resolvers/store.js';
+import { subscriptionResolvers } from './resolvers/subscription.js';
+import { crmResolvers } from './resolvers/crm.js';
 
 export const resolvers = {
   User: {
@@ -66,6 +68,21 @@ export const resolvers = {
   StoreOrder: {
     ...storeResolvers.StoreOrder,
   },
+  UserSubscription: {
+    ...subscriptionResolvers.UserSubscription,
+  },
+  Coupon: {
+    ...subscriptionResolvers.Coupon,
+  },
+  CrmUser: {
+    ...crmResolvers.CrmUser,
+  },
+  CrmNote: {
+    ...crmResolvers.CrmNote,
+  },
+  AdminAuditLog: {
+    ...crmResolvers.AdminAuditLog,
+  },
   Query: {
     ...userResolvers.Query,
     ...contentResolvers.Query,
@@ -85,6 +102,8 @@ export const resolvers = {
     ...wellnessResolvers.Query,
     ...supportResolvers.Query,
     ...storeResolvers.Query,
+    ...subscriptionResolvers.Query,
+    ...crmResolvers.Query,
   },
   Mutation: {
     ...userResolvers.Mutation,
@@ -105,5 +124,7 @@ export const resolvers = {
     ...wellnessResolvers.Mutation,
     ...supportResolvers.Mutation,
     ...storeResolvers.Mutation,
+    ...subscriptionResolvers.Mutation,
+    ...crmResolvers.Mutation,
   }
 };
