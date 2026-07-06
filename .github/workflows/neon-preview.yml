@@ -70,7 +70,11 @@ jobs:
           cache: 'npm'
           cache-dependency-path: divine-backend/package-lock.json
 
-      - name: Install dependencies
+      - name: Install Shared Models dependencies
+        run: npm install
+        working-directory: divine-data-models
+
+      - name: Install Backend dependencies
         run: |
           npm install
           npm install ../divine-data-models

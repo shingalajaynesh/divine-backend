@@ -237,7 +237,7 @@ export class SubscriptionService {
       const expected = crypto.createHmac('sha256', keySecret)
                             .update(razorpayOrderId + '|' + razorpayPaymentId)
                             .digest('hex');
-      if (expected !== razorpaySignature && keySecret !== 'mock_key_secret') {
+      if (expected !== razorpaySignature && !['mock', 'mock_key_secret'].includes(keySecret)) {
         throw new Error('Invalid Razorpay signature verification');
       }
 
