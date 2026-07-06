@@ -5,7 +5,8 @@
   "type": "module",
   "scripts": {
     "start": "node src/index.js",
-    "dev": "nodemon src/index.js"
+    "dev": "nodemon src/index.js",
+    "db:sync": "node src/scripts/sync-db.js"
   },
   "dependencies": {
     "@apollo/server": "^4.11.0",

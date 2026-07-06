@@ -15,6 +15,7 @@ const startServer = async () => {
   try {
     // 1. Initialize centralized database models
     const dataModels = new DataModels(new Logger('Database'));
+    const useSSL = process.env.DB_SSL === 'true';
     dataModels.init({
       database: process.env.DB_NAME || 'divine_garbh_sanskar',
       dbUser: process.env.DB_USER || 'postgres',
@@ -22,6 +23,12 @@ const startServer = async () => {
       host: process.env.DB_HOST || 'localhost',
       port: parseInt(process.env.DB_PORT || '5432', 10),
       dialect: 'postgres',
+      dialectOptions: useSSL ? {
+        ssl: {
+          require: true,
+          rejectUnauthorized: false
+        }
+      } : {}
     });
 
     log.info('Centralized database models initialized successfully.');
