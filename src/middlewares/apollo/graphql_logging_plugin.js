@@ -1,6 +1,8 @@
 // GraphQL Logging Plugin with parameter sanitization
 const LOG_GRAPH_QL_REQUESTS = 'true' === (process.env.LOG_GRAPH_QL_REQUESTS || 'true').toLowerCase();
 const LOG_GRAPH_QL_RESPONSES = 'true' === (process.env.LOG_GRAPH_QL_RESPONSES || 'true').toLowerCase();
+const LOG_GRAPH_QL_VARIABLES = 'true' === (process.env.LOG_GRAPH_QL_VARIABLES || 'false').toLowerCase();
+const LOG_GRAPH_QL_DOCUMENTS = 'true' === (process.env.LOG_GRAPH_QL_DOCUMENTS || 'false').toLowerCase();
 
 const SENSITIVE_KEYS = new Set([
   'password',
@@ -13,6 +15,19 @@ const SENSITIVE_KEYS = new Set([
   'secret',
   'authtoken',
   'pin',
+  'email',
+  'phone',
+  'mobile',
+  'name',
+  'city',
+  'message',
+  'content',
+  'lmpdate',
+  'duedate',
+  'weight',
+  'bloodsugar',
+  'systolicbp',
+  'diastolicbp',
 ]);
 
 const sanitize = (obj) => {
@@ -40,10 +55,10 @@ const GraphQlLoggingPlugin = {
     if (LOG_GRAPH_QL_REQUESTS) {
       if (requestContext.request.operationName !== 'IntrospectionQuery') {
         const sanitizedRequest = {
-          query: requestContext.request.query,
           operationName: requestContext.request.operationName,
-          variables: sanitize(requestContext.request.variables),
         };
+        if (LOG_GRAPH_QL_DOCUMENTS) sanitizedRequest.query = requestContext.request.query;
+        if (LOG_GRAPH_QL_VARIABLES) sanitizedRequest.variables = sanitize(requestContext.request.variables);
         log.info('graphql request <<<', sanitizedRequest);
       }
     }
@@ -57,7 +72,10 @@ const GraphQlLoggingPlugin = {
               hasErrors: !!errors,
             };
             if (errors) {
-              logMeta.errors = errors;
+              logMeta.errors = errors.map((error) => ({
+                message: error.message,
+                code: error.extensions?.code,
+              }));
             }
             log.info('graphql response >>>', logMeta);
           }

@@ -140,6 +140,45 @@ export const typeDefs = `#graphql
     status: String!
   }
 
+  type InquiryResponse {
+    id: ID!
+    content: String!
+    author: User!
+    createdAt: String!
+  }
+
+  type Inquiry {
+    id: ID!
+    name: String!
+    email: String
+    phone: String!
+    city: String!
+    language: String!
+    preferredCallTime: String
+    message: String
+    source: String!
+    status: String!
+    responses: [InquiryResponse!]!
+    createdAt: String!
+    updatedAt: String!
+  }
+
+  type InquiryConnection {
+    items: [Inquiry!]!
+    total: Int!
+  }
+
+  input SubmitInquiryInput {
+    name: String!
+    email: String
+    phone: String!
+    city: String!
+    language: String!
+    preferredCallTime: String
+    message: String
+    source: String
+  }
+
   type Query {
     me: User
     getUser(id: ID!): User
@@ -157,10 +196,11 @@ export const typeDefs = `#graphql
     getExpertBookings(expertId: ID!): [ConsultationBooking!]!
     getMyConsultations: [ConsultationBooking!]!
     getMyBillingHistory: [Payment!]!
+    getInquiries(status: String, search: String, limit: Int, offset: Int): InquiryConnection!
   }
 
   type Mutation {
-    syncUser(clerkUserPayload: String!): User!
+    syncUser: User!
     updateUser(id: ID!, firstName: String, lastName: String, displayName: String, mobileNo: String): User!
     saveOnboarding(lmpDate: String, dueDate: String, language: String!): User!
     addForumPost(title: String!, content: String!): ForumPost!
@@ -201,5 +241,8 @@ export const typeDefs = `#graphql
     bookConsultation(expertId: ID!, scheduleSlot: String!): ConsultationBooking!
     cancelConsultation(bookingId: ID!): Boolean!
     dispatchDailyWhatsAppReminders: Boolean!
+    submitInquiry(input: SubmitInquiryInput!): Inquiry!
+    updateInquiryStatus(id: ID!, status: String!): Inquiry!
+    replyToInquiry(id: ID!, content: String!): Inquiry!
   }
 `;

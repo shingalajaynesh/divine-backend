@@ -4,7 +4,10 @@ import { BaseManager } from './baseManager.js';
 export class UserManager extends BaseManager {
   async getUserById(userId) {
     return this.models.User.findOne({
-      where: { id: userId },
+      where: {
+        id: userId,
+        ...(this.viewer?.centerId ? { centerId: this.viewer.centerId } : {}),
+      },
       include: [
         { model: this.models.Role, as: 'role' },
         { model: this.models.Center, as: 'center' },
@@ -59,16 +62,11 @@ export class UserManager extends BaseManager {
     const { id: updatorId } = this.viewer;
     const userId = userData.id;
     delete userData.id;
-
-    return await this.models.User.update(
-      {
-        ...userData,
-        updatedBy: updatorId,
-      },
-      {
-        where: { id: userId },
-      }
-    );
+    const user = await this.models.User.findOne({
+      where: { id: userId, centerId: this.viewer.centerId },
+    });
+    if (!user) throw new Error('User not found in your center.');
+    return user.update({ ...userData, updatedBy: updatorId });
   }
 
   async deleteUser(userId) {

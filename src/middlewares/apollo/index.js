@@ -2,7 +2,8 @@ import { ApolloServer } from '@apollo/server';
 import { ApolloServerPluginLandingPageDisabled } from '@apollo/server/plugin/disabled';
 import { ApolloServerPluginLandingPageLocalDefault } from '@apollo/server/plugin/landingPage/default';
 import express from 'express';
-import cors from 'cors';
+import { getAuth } from '@clerk/express';
+import { verifyToken } from '@clerk/backend';
 import { v4 as uuidv4 } from 'uuid';
 import GraphQlLoggingPlugin from './graphql_logging_plugin.js';
 import { expressMiddleware } from '@apollo/server/express4';
@@ -18,6 +19,7 @@ import { DeviceManager } from '../../gql/models/deviceManager.js';
 import { SessionManager } from '../../gql/models/sessionManager.js';
 import { VitalsManager } from '../../gql/models/vitalsManager.js';
 import Logger, { setContext, runWithContext } from '../../util/logger.js';
+import { clerkAuthorizedParties } from '../../config/security.js';
 
 const pubSub = new PubSub();
 
@@ -39,7 +41,6 @@ const updateAllManagersViewer = (viewer, managers) => {
 
 const createContext = async ({ req, res }) => {
   const log = req.logger.configureLogger();
-  const authHeader = req.headers.authorization || '';
   const requestId = req.requestId || uuidv4();
   
   let viewer = null;
@@ -58,16 +59,10 @@ const createContext = async ({ req, res }) => {
   setContext('requestId', requestId);
 
   try {
-    if (authHeader.startsWith('Bearer ')) {
-      // 1. Verify Clerk Auth token
-      const tokenVerification = await authManager.verifyClerkToken(authHeader);
-      
-      if (tokenVerification.valid && tokenVerification.decoded) {
-        // Clerk ID is stored as sub in token claims
-        const clerkId = tokenVerification.decoded.sub;
-        const sid = tokenVerification.decoded.sid; // Clerk session ID
-        
-        if (clerkId) {
+    const clerkAuth = getAuth(req);
+    if (clerkAuth.isAuthenticated && clerkAuth.userId) {
+        const clerkId = clerkAuth.userId;
+        const sid = clerkAuth.sessionId;
           // 2. Fetch local user matching clerkId
           viewer = await req.models.User.findOne({
             where: { clerkId },
@@ -136,10 +131,6 @@ const createContext = async ({ req, res }) => {
           } else {
             req.logger.warn('Clerk user validated but not found in local database:', { clerkId });
           }
-        }
-      } else {
-        req.logger.warn('Invalid Clerk token received:', tokenVerification.error);
-      }
     }
   } catch (error) {
     req.logger.error('Error establishing context user authentication:', error);
@@ -150,6 +141,7 @@ const createContext = async ({ req, res }) => {
     req,
     res,
     viewer,
+    clerkUserId: getAuth(req).userId || null,
     log: req.logger,
     requestId,
     pubSub,
@@ -164,22 +156,15 @@ const createContext = async ({ req, res }) => {
   };
 };
 
-export default async (httpServer) => {
+export default async (httpServer, models) => {
   const app = express();
-  app.use(express.json({ limit: '10mb' }));
-
-  // CORS setup
-  const corsOptions = {
-    origin: true,
-    credentials: true,
-  };
-  app.use(cors(corsOptions));
 
   // WebSocket Server setup for subscriptions
   const wsServer = new WebSocketServer({
     server: httpServer,
     path: '/graphql',
   });
+  wsServer.models = models;
 
   useServer(
     {
@@ -203,9 +188,15 @@ export default async (httpServer) => {
 
         try {
           if (token.startsWith('Bearer ')) {
-            const tokenVerification = await authManager.verifyClerkToken(token);
-            if (tokenVerification.valid && tokenVerification.decoded) {
-              const clerkId = tokenVerification.decoded.sub;
+            const verifiedToken = await verifyToken(token.replace('Bearer ', ''), {
+              jwtKey: process.env.CLERK_JWT_KEY,
+              secretKey: process.env.CLERK_SECRET_KEY,
+              ...(clerkAuthorizedParties.length > 0
+                ? { authorizedParties: clerkAuthorizedParties }
+                : {}),
+            });
+            if (verifiedToken?.sub) {
+              const clerkId = verifiedToken.sub;
               viewer = await models.User.findOne({
                 where: { clerkId },
                 include: [
@@ -252,8 +243,9 @@ export default async (httpServer) => {
     schema,
     csrfPrevention: true,
     cache: 'bounded',
-    introspection: true,
-    allowBatchedHttpRequests: true,
+    introspection: process.env.NODE_ENV !== 'production',
+    allowBatchedHttpRequests: process.env.NODE_ENV !== 'production',
+    formatError,
     plugins: [
       landingPagePlugin,
       GraphQlLoggingPlugin,

@@ -4,9 +4,9 @@ services:
     container_name: divine_postgres
     restart: always
     environment:
-      POSTGRES_DB: divinegarbh_sanskar
-      POSTGRES_USER: jaynesh
-      POSTGRES_PASSWORD: c9NJT9uJTsDok1aUPWMxvb5S4qhfkPRp
+      POSTGRES_DB: ${DB_NAME:-divine_garbh_sanskar}
+      POSTGRES_USER: ${DB_USER:-postgres}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:?Set DB_PASSWORD in .env}
     ports:
       - "5435:5432" # Forward port 5435 on host to 5432 in container (prevents conflict with local HMS/5432)
     volumes:
@@ -22,17 +22,19 @@ services:
       - "4000:4000" # Expose Apollo GraphQL server on port 4000
     environment:
       - PORT=4000
-      - DB_NAME=divinegarbh_sanskar
-      - DB_USER=jaynesh
-      - DB_PASSWORD=c9NJT9uJTsDok1aUPWMxvb5S4qhfkPRp
+      - DB_NAME=${DB_NAME:-divine_garbh_sanskar}
+      - DB_USER=${DB_USER:-postgres}
+      - DB_PASSWORD=${DB_PASSWORD:?Set DB_PASSWORD in .env}
       - DB_HOST=postgres # Links to the postgres service container name
       - DB_PORT=5432 # Uses internal container port 5432
       - DB_SSL=false # Disables SSL inside local docker networking
       - SLOW_QUERY_THRESHOLD=100
       - LOG_LEVEL=info
       - LOG_FORMAT=dev
-      - CLERK_SECRET_KEY=sk_test_BXrZ4BTHITR5lJEHhlFLRRvrmcGUUj2PxkF7DH5k4S
-      - CLERK_PUBLISHABLE_KEY=pk_test_a25vd2luZy1sYWJyYWRvci05OC5jbGVyay5hY2NvdW50cy5kZXYk
+      - CLERK_SECRET_KEY=${CLERK_SECRET_KEY:?Set CLERK_SECRET_KEY in .env}
+      - CLERK_JWT_KEY=${CLERK_JWT_KEY:-}
+      - ALLOWED_ORIGINS=${ALLOWED_ORIGINS:-http://localhost:5173,http://localhost:5174,http://localhost:8081}
+      - CLERK_AUTHORIZED_PARTIES=${CLERK_AUTHORIZED_PARTIES:-http://localhost:5173,http://localhost:5174,http://localhost:8081}
     depends_on:
       - postgres
 

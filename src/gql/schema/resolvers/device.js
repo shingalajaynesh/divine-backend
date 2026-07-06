@@ -1,4 +1,4 @@
-import { authenticate } from '../permissions/index.js';
+import { authenticate, authorizeRoles } from '../permissions/index.js';
 
 export const deviceResolvers = {
   Query: {
@@ -14,21 +14,15 @@ export const deviceResolvers = {
       return await deviceManager.registerDevice(context.viewer.id, args);
     }),
 
-    approveDevice: authenticate(async (parent, args, context) => {
-      if (context.viewer.role?.roleType !== 'ADMIN') {
-        throw new Error('Unauthorized. Admin privilege required.');
-      }
+    approveDevice: authenticate(authorizeRoles(['ADMIN'], async (parent, args, context) => {
       const { deviceManager } = context;
-      return await deviceManager.updateDeviceStatus(args.deviceId, 'approved', context.viewer.id);
-    }),
+      return await deviceManager.updateDeviceStatus(args.deviceId, 'approved', context.viewer.id, context.viewer.centerId);
+    })),
 
-    rejectDevice: authenticate(async (parent, args, context) => {
-      if (context.viewer.role?.roleType !== 'ADMIN') {
-        throw new Error('Unauthorized. Admin privilege required.');
-      }
+    rejectDevice: authenticate(authorizeRoles(['ADMIN'], async (parent, args, context) => {
       const { deviceManager } = context;
-      return await deviceManager.updateDeviceStatus(args.deviceId, 'rejected', context.viewer.id);
-    }),
+      return await deviceManager.updateDeviceStatus(args.deviceId, 'rejected', context.viewer.id, context.viewer.centerId);
+    })),
 
     deauthorizeDevice: authenticate(async (parent, args, context) => {
       const { deviceManager } = context;
@@ -36,4 +30,3 @@ export const deviceResolvers = {
     }),
   }
 };
-

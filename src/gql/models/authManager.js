@@ -1,47 +1,29 @@
-import jwt from 'jsonwebtoken';
 import { BaseManager } from './baseManager.js';
 import { v4 as uuidv4 } from 'uuid';
+import { createClerkClient } from '@clerk/express';
 
 export class AuthManager extends BaseManager {
   /**
-   * Verifies the Clerk JWT token.
-   * In a real implementation, you would fetch Clerk PEM public keys and use them to verify the token.
-   * @param {string} token - Clerk session token (JWT)
+   * Fetches the authenticated Clerk user server-side before synchronizing it.
+   * Client-provided identity payloads are intentionally never trusted.
    */
-  async verifyClerkToken(token) {
-    try {
-      const tokenString = token.replace('Bearer ', '');
-      
-      // Decode JWT headers to see matching key ID
-      const decodedToken = jwt.decode(tokenString, { complete: true });
-      if (!decodedToken) {
-        throw new Error('Invalid token format');
-      }
-
-      // In production, Clerk JWT verification is done using Clerk's JSON Web Key Set (JWKS)
-      // For development, we extract the claims and mock verification, or check CLERK_JWT_KEY
-      const clerkKey = process.env.CLERK_JWT_KEY;
-      if (clerkKey) {
-        // RS256 or custom key check
-        const verified = jwt.verify(tokenString, clerkKey);
-        return { valid: true, decoded: verified };
-      }
-
-      // Fallback/Demo: return decoded if CLERK_JWT_KEY is not defined yet
-      return { valid: true, decoded: decodedToken.payload };
-    } catch (error) {
-      this.log.error('Clerk token verification failed:', error);
-      return { valid: false, error: error.message };
-    }
+  async syncClerkUserById(clerkId) {
+    if (!clerkId) throw new Error('Verified Clerk user ID is required');
+    const clerk = createClerkClient({ secretKey: process.env.CLERK_SECRET_KEY });
+    const clerkUser = await clerk.users.getUser(clerkId);
+    return this.syncClerkUser(clerkUser);
   }
 
-  /**
-   * Synchronizes user data received from Clerk Webhook (e.g. user.created or user.updated)
-   * @param {Object} clerkUser - User data payload from Clerk webhook
-   */
   async syncClerkUser(clerkUser) {
-    const { id: clerkId, email_addresses, first_name, last_name, image_url } = clerkUser;
-    const emailAddress = email_addresses?.[0]?.email_address;
+    const clerkId = clerkUser.id;
+    const primaryEmail = clerkUser.emailAddresses?.find(
+      (email) => email.id === clerkUser.primaryEmailAddressId,
+    );
+    const emailAddress = (primaryEmail || clerkUser.emailAddresses?.[0])?.emailAddress
+      ?.trim()
+      .toLowerCase();
+    const firstName = clerkUser.firstName?.trim() || null;
+    const lastName = clerkUser.lastName?.trim() || null;
 
     if (!emailAddress) {
       throw new Error('Email address is required to sync Clerk user');
@@ -77,19 +59,22 @@ export class AuthManager extends BaseManager {
         });
       }
 
-      // Check if user exists by clerkId or email
+      // Clerk ID is the only automatic account-linking key.
       let user = await User.findOne({ where: { clerkId } });
       if (!user) {
-        user = await User.findOne({ where: { emailAddress } });
+        const conflictingEmailUser = await User.findOne({ where: { emailAddress } });
+        if (conflictingEmailUser) {
+          throw new Error('An account with this email already exists. Contact support to link it securely.');
+        }
       }
 
       if (user) {
         // Update user
         await user.update({
           clerkId,
-          firstName: first_name,
-          lastName: last_name,
-          displayName: `${first_name || ''} ${last_name || ''}`.trim() || emailAddress.split('@')[0],
+          firstName,
+          lastName,
+          displayName: `${firstName || ''} ${lastName || ''}`.trim() || emailAddress.split('@')[0],
           updated: new Date()
         });
         this.log.info('Synced and updated Clerk user locally:', { emailAddress, clerkId });
@@ -101,9 +86,9 @@ export class AuthManager extends BaseManager {
           sub: clerkId,
           emailAddress,
           pwHash: Buffer.from('clerk-managed'),
-          firstName: first_name,
-          lastName: last_name,
-          displayName: `${first_name || ''} ${last_name || ''}`.trim() || emailAddress.split('@')[0],
+          firstName,
+          lastName,
+          displayName: `${firstName || ''} ${lastName || ''}`.trim() || emailAddress.split('@')[0],
           centerId: defaultCenter.id,
           roleId: motherRole.id,
           isActive: true,

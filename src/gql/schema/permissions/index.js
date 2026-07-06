@@ -16,6 +16,28 @@ export const authenticate = (next) => async (parent, args, context, info) => {
   return next(parent, args, context, info);
 };
 
+export const authorizeRoles = (roles, next) => async (parent, args, context, info) => {
+  const roleType = context.viewer?.role?.roleType;
+  if (!roleType || !roles.includes(roleType)) {
+    throw new GraphQLError('You do not have permission to perform this action.', {
+      extensions: { code: 'FORBIDDEN' },
+    });
+  }
+  return next(parent, args, context, info);
+};
+
+export const authorizeSelfOrRoles = (getTargetUserId, roles, next) =>
+  async (parent, args, context, info) => {
+    const targetUserId = getTargetUserId(args);
+    const roleType = context.viewer?.role?.roleType;
+    if (context.viewer?.id !== targetUserId && !roles.includes(roleType)) {
+      throw new GraphQLError('You can only modify your own profile.', {
+        extensions: { code: 'FORBIDDEN' },
+      });
+    }
+    return next(parent, args, context, info);
+  };
+
 /**
  * RBAC Module Guard - checks if the viewer's role has permission for module operations.
  */

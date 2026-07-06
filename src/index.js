@@ -2,10 +2,18 @@ import http from 'http';
 import express from 'express';
 import dotenv from 'dotenv';
 import cors from 'cors';
+import helmet from 'helmet';
+import { rateLimit } from 'express-rate-limit';
+import { clerkMiddleware } from '@clerk/express';
 import { v4 as uuidv4 } from 'uuid';
 import { DataModels } from 'divine-data-models';
 import Logger, { runWithContext } from './util/logger.js';
 import bootstrapApollo from './middlewares/apollo/index.js';
+import {
+  allowedOrigins,
+  assertSecureConfiguration,
+  corsOptions,
+} from './config/security.js';
 
 dotenv.config();
 
@@ -14,6 +22,7 @@ const PORT = process.env.PORT || 4000;
 
 const startServer = async () => {
   try {
+    assertSecureConfiguration();
     // 1. Initialize centralized database models
     const dataModels = new DataModels(new Logger('Database'));
     const useSSL = process.env.DB_SSL === 'true';
@@ -36,7 +45,23 @@ const startServer = async () => {
 
     // 2. Create Express app
     const app = express();
-    app.use(express.json({ limit: '10mb' }));
+    app.set('trust proxy', 1);
+    app.use(
+      clerkMiddleware({
+        authorizedParties: allowedOrigins,
+      }),
+    );
+    app.use(helmet({ crossOriginResourcePolicy: { policy: 'cross-origin' } }));
+    app.use(cors(corsOptions));
+    app.use(
+      rateLimit({
+        windowMs: 15 * 60 * 1000,
+        limit: process.env.NODE_ENV === 'production' ? 300 : 3000,
+        standardHeaders: 'draft-8',
+        legacyHeaders: false,
+      }),
+    );
+    app.use(express.json({ limit: '1mb' }));
 
     // Inject database models and connection into the express request object
     app.use((req, res, next) => {
@@ -59,7 +84,7 @@ const startServer = async () => {
     const httpServer = http.createServer(app);
 
     // 4. Bootstrap Apollo Server and mount Apollo middleware onto Express
-    const apolloApp = await bootstrapApollo(httpServer);
+    const apolloApp = await bootstrapApollo(httpServer, dataModels.models);
     app.use('/graphql', apolloApp);
 
     // 5. Start listening

@@ -134,10 +134,10 @@ export class DeviceManager extends BaseManager {
   /**
    * Update the status of a registered device (e.g. Approve, Reject, Suspend).
    */
-  async updateDeviceStatus(deviceId, status, approvedBy) {
+  async updateDeviceStatus(deviceId, status, approvedBy, centerId) {
     try {
       const RegisteredDevice = this.models.RegisteredDevice;
-      const device = await RegisteredDevice.findOne({ where: { deviceId } });
+      const device = await RegisteredDevice.findOne({ where: { deviceId, centerId } });
 
       if (!device) {
         throw new Error('Device not found');
@@ -197,4 +197,3 @@ export class DeviceManager extends BaseManager {
     }
   }
 }
-

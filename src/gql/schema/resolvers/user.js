@@ -1,4 +1,10 @@
-import { authenticate, checkPermissionFor } from '../permissions/index.js';
+import { GraphQLError } from 'graphql';
+import {
+  authenticate,
+  authorizeRoles,
+  authorizeSelfOrRoles,
+  checkPermissionFor,
+} from '../permissions/index.js';
 import { calculatePregnancyStats } from '../../../util/pregnancy.js';
 
 export const userResolvers = {
@@ -63,17 +69,20 @@ export const userResolvers = {
   Mutation: {
     syncUser: async (parent, args, context) => {
       const { log, authManager } = context;
+      if (!context.clerkUserId) {
+        throw new GraphQLError('A verified Clerk session is required.', {
+          extensions: { code: 'UNAUTHENTICATED' },
+        });
+      }
       log.info('Clerk user sync mutation triggered');
-      
-      const payload = JSON.parse(args.clerkUserPayload);
-      return await authManager.syncClerkUser(payload);
+      return await authManager.syncClerkUserById(context.clerkUserId);
     },
     
-    updateUser: authenticate(async (parent, args, context) => {
+    updateUser: authenticate(authorizeSelfOrRoles((args) => args.id, ['ADMIN'], async (parent, args, context) => {
       const { userManager } = context;
       await userManager.updateUser(args);
       return await userManager.getUserById(args.id);
-    }),
+    })),
 
     saveOnboarding: authenticate(async (parent, args, context) => {
       const { lmpDate, dueDate, language } = args;
@@ -97,21 +106,10 @@ export const userResolvers = {
       return user;
     }),
 
-    createStripeCheckout: authenticate(async (parent, args, context) => {
-      const sessionId = 'cs_test_' + Math.random().toString(36).substring(7);
-      
-      await context.models.Payment.create({
-        userId: context.viewer.id,
-        stripeSessionId: sessionId,
-        amount: args.plan === 'lifetime' ? 49.99 : args.plan === 'quarterly' ? 24.99 : 9.99,
-        status: 'pending'
+    createStripeCheckout: authenticate(authorizeRoles(['ADMIN'], async () => {
+      throw new GraphQLError('Payments are temporarily unavailable while secure checkout is being configured.', {
+        extensions: { code: 'PAYMENTS_NOT_CONFIGURED' },
       });
-
-      const user = context.viewer;
-      user.subscriptionStatus = args.plan === 'lifetime' ? 'premium_lifetime' : args.plan === 'quarterly' ? 'premium_quarterly' : 'premium_monthly';
-      await user.save();
-
-      return `http://localhost:5173/checkout-success?session_id=${sessionId}&plan=${args.plan}`;
-    }),
+    })),
   }
 };

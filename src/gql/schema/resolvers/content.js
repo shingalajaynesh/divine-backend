@@ -1,4 +1,4 @@
-import { authenticate } from '../permissions/index.js';
+import { authenticate, authorizeRoles } from '../permissions/index.js';
 
 export const contentResolvers = {
   DailyContent: {
@@ -52,11 +52,8 @@ export const contentResolvers = {
   },
 
   Mutation: {
-    adminAddContent: authenticate(async (parent, args, context) => {
-      if (context.viewer.role?.roleType !== 'ADMIN') {
-        throw new Error('Unauthorized. Admin privilege required.');
-      }
+    adminAddContent: authenticate(authorizeRoles(['ADMIN'], async (parent, args, context) => {
       return await context.models.DailyContent.create(args);
-    }),
+    })),
   }
 };

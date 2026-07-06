@@ -1,20 +1,36 @@
-import { authenticate } from '../permissions/index.js';
+import { authenticate, authorizeRoles } from '../permissions/index.js';
 import { v4 as uuidv4 } from 'uuid';
+import { Op } from 'sequelize';
 
 export const bookingResolvers = {
   Query: {
     getExpertSchedules: authenticate(async (parent, args, context) => {
       const { models } = context;
       return await models.ExpertSchedule.findAll({
-        include: [{ model: models.User, as: 'expert' }],
+        include: [{
+          model: models.User,
+          as: 'expert',
+          required: true,
+          where: { centerId: context.viewer.centerId, isActive: true },
+        }],
         order: [['dayOfWeek', 'ASC'], ['startTime', 'ASC']]
       });
     }),
 
     getExpertBookings: authenticate(async (parent, args, context) => {
       const { models } = context;
+      const roleType = context.viewer.role?.roleType;
+      if (context.viewer.id !== args.expertId && !['STAFF', 'ADMIN'].includes(roleType)) {
+        throw new Error('Unauthorized. You can only view your own bookings.');
+      }
       return await models.ConsultationBooking.findAll({
-        where: { expertId: args.expertId, status: 'confirmed' }
+        where: { expertId: args.expertId, status: 'confirmed' },
+        include: [{
+          model: models.User,
+          as: 'expert',
+          required: true,
+          where: { centerId: context.viewer.centerId },
+        }],
       });
     }),
 
@@ -39,6 +55,18 @@ export const bookingResolvers = {
       const { models, log } = context;
       const { expertId, scheduleSlot } = args;
       const userId = context.viewer.id;
+
+      const expert = await models.User.findOne({
+        where: { id: expertId, centerId: context.viewer.centerId, isActive: true },
+        include: [{
+          model: models.Role,
+          as: 'role',
+          required: true,
+          where: { roleType: { [Op.in]: ['GUIDE', 'STAFF', 'ADMIN'] } },
+        }],
+      });
+      if (!expert) throw new Error('The selected expert is unavailable.');
+      if (new Date(scheduleSlot) <= new Date()) throw new Error('Consultation time must be in the future.');
 
       // 1. Check if the slot is already booked for this expert
       const existing = await models.ConsultationBooking.findOne({
@@ -91,14 +119,14 @@ export const bookingResolvers = {
       return true;
     }),
 
-    dispatchDailyWhatsAppReminders: authenticate(async (parent, args, context) => {
+    dispatchDailyWhatsAppReminders: authenticate(authorizeRoles(['ADMIN'], async (parent, args, context) => {
       const { models, log } = context;
       const { WhatsAppService } = await import('../../../services/whatsappService.js');
       const wsService = new WhatsAppService(models);
 
       // Find all active users
       const users = await models.User.findAll({
-        where: { isActive: true }
+        where: { isActive: true, centerId: context.viewer.centerId }
       });
 
       let count = 0;
@@ -122,6 +150,6 @@ export const bookingResolvers = {
 
       log.info(`Dispatched bilingual daily WhatsApp reminders to ${count} mothers.`);
       return true;
-    })
+    }))
   }
 };

@@ -14,6 +14,7 @@ RUN npm install --omit=dev
 
 WORKDIR /app/divine-backend
 RUN npm install --omit=dev
+RUN npm install --omit=dev --no-save ../divine-data-models
 
 # Stage 2: Runtime Environment
 FROM node:20-alpine AS runner
@@ -35,4 +36,4 @@ EXPOSE 4000
 
 USER nestuser
 
-CMD ["sh", "-c", "npx sequelize-cli db:migrate && node src/scripts/sync-db.js && node src/scripts/seed-data.js && node src/index.js"]
+CMD ["sh", "-c", "npx sequelize-cli db:migrate && node src/scripts/sync-db.js && node src/index.js"]

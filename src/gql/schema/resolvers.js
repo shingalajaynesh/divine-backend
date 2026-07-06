@@ -6,6 +6,7 @@ import { deviceResolvers } from './resolvers/device.js';
 import { parameterResolvers } from './resolvers/parameter.js';
 import { vitalsResolvers } from './resolvers/vitals.js';
 import { bookingResolvers } from './resolvers/booking.js';
+import { inquiryResolvers } from './resolvers/inquiry.js';
 
 export const resolvers = {
   User: {
@@ -26,6 +27,12 @@ export const resolvers = {
   LiveClass: {
     ...liveClassResolvers.LiveClass,
   },
+  Inquiry: {
+    ...inquiryResolvers.Inquiry,
+  },
+  InquiryResponse: {
+    ...inquiryResolvers.InquiryResponse,
+  },
   Query: {
     ...userResolvers.Query,
     ...contentResolvers.Query,
@@ -35,6 +42,7 @@ export const resolvers = {
     ...parameterResolvers.Query,
     ...vitalsResolvers.Query,
     ...bookingResolvers.Query,
+    ...inquiryResolvers.Query,
   },
   Mutation: {
     ...userResolvers.Mutation,
@@ -45,5 +53,6 @@ export const resolvers = {
     ...parameterResolvers.Mutation,
     ...vitalsResolvers.Mutation,
     ...bookingResolvers.Mutation,
+    ...inquiryResolvers.Mutation,
   }
 };
