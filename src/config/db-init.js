@@ -12,6 +12,13 @@ export const initializeDataModels = (logger) => {
 
   let config = {};
 
+  const pool = {
+    max: process.env.DB_POOL_MAX ? parseInt(process.env.DB_POOL_MAX, 10) : 5,
+    min: process.env.DB_POOL_MIN ? parseInt(process.env.DB_POOL_MIN, 10) : 1,
+    acquire: process.env.DB_POOL_ACQUIRE ? parseInt(process.env.DB_POOL_ACQUIRE, 10) : 30000,
+    idle: process.env.DB_POOL_IDLE ? parseInt(process.env.DB_POOL_IDLE, 10) : 10000,
+  };
+
   if (process.env.DATABASE_URL) {
     const url = new URL(process.env.DATABASE_URL);
     const useSSL = process.env.DB_SSL === 'true' || process.env.DATABASE_URL.includes('sslmode=require');
@@ -28,7 +35,8 @@ export const initializeDataModels = (logger) => {
           require: true,
           rejectUnauthorized: false
         }
-      } : {}
+      } : {},
+      pool
     };
   } else {
     const useSSL = process.env.DB_SSL === 'true';
@@ -44,7 +52,8 @@ export const initializeDataModels = (logger) => {
           require: true,
           rejectUnauthorized: false
         }
-      } : {}
+      } : {},
+      pool
     };
   }
 

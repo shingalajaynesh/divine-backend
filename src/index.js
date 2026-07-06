@@ -1,4 +1,5 @@
 import http from 'http';
+import https from 'https';
 import express from 'express';
 import dotenv from 'dotenv';
 import cors from 'cors';
@@ -20,6 +21,37 @@ dotenv.config();
 
 const log = new Logger('Server').configureLogger();
 const PORT = process.env.PORT || 4000;
+
+/**
+ * Starts a background loop to self-ping the server's health check endpoint.
+ * This keeps the Render free tier container active.
+ * @param {string} urlStr - The full health check URL of the backend (e.g. https://your-app.onrender.com/health)
+ */
+const startSelfPing = (urlStr) => {
+  if (!urlStr) {
+    log.info('BACKEND_SELF_PING_URL not configured. Self-ping keep-awake is disabled.');
+    return;
+  }
+
+  const intervalMs = parseInt(process.env.SELF_PING_INTERVAL_MS, 10) || 10 * 60 * 1000; // default 10 minutes
+
+  log.info(`Self-ping keep-awake initialized for URL: ${urlStr} (Interval: ${intervalMs / 1000}s)`);
+
+  setInterval(() => {
+    try {
+      const pingUrl = new URL(urlStr);
+      const requester = pingUrl.protocol === 'https:' ? https : http;
+      requester.get(urlStr, (res) => {
+        log.info(`Self-ping response status: ${res.statusCode}`);
+      }).on('error', (err) => {
+        log.error(`Self-ping request failed: ${err.message}`);
+      });
+    } catch (e) {
+      log.error(`Invalid BACKEND_SELF_PING_URL configuration: ${e.message}`);
+    }
+  }, intervalMs);
+};
+
 
 const startServer = async () => {
   try {
@@ -81,9 +113,28 @@ const startServer = async () => {
       });
     });
 
-    // Health check endpoint
-    app.get('/health', (req, res) => {
-      res.status(200).json({ status: 'OK', uptime: process.uptime() });
+    // Ping endpoint for simple checking
+    app.get('/ping', (req, res) => {
+      res.status(200).json({ message: 'pong' });
+    });
+
+    // Health check endpoint with database check
+    app.get('/health', async (req, res) => {
+      try {
+        await req.sequelize.authenticate();
+        res.status(200).json({
+          status: 'OK',
+          database: 'connected',
+          uptime: process.uptime(),
+        });
+      } catch (error) {
+        log.error('Health check failed:', error);
+        res.status(500).json({
+          status: 'ERROR',
+          message: 'Database connection failed',
+          error: error.message,
+        });
+      }
     });
 
     // 3. Create HTTP Server
@@ -97,6 +148,9 @@ const startServer = async () => {
     httpServer.listen(PORT, () => {
       log.info(`🚀 Server ready at http://localhost:${PORT}/graphql`);
       log.info(`🚀 Subscriptions ready at ws://localhost:${PORT}/graphql`);
+      
+      // Start self-pinging keep-alive if configured
+      startSelfPing(process.env.BACKEND_SELF_PING_URL);
     });
   } catch (error) {
     log.error('Failed to start server:', error);

@@ -1,6 +1,8 @@
 import dotenv from 'dotenv';
 import { initializeDataModels } from '../config/db-init.js';
 import Logger from '../util/logger.js';
+import { seedPrograms } from './seed-programs.js';
+import { seedContentCms } from './seed-content-cms.js';
 
 dotenv.config();
 
@@ -53,6 +55,8 @@ const runSync = async () => {
     }
 
     log.info('✅ Database bootstrapping complete.');
+    await seedPrograms(dataModels.models, dataModels.sequelize, log);
+    await seedContentCms(dataModels.models, dataModels.sequelize, log);
     process.exit(0);
   } catch (error) {
     log.error('❌ Database synchronization failed:', error);

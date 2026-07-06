@@ -19,6 +19,8 @@ import { DeviceManager } from '../../gql/models/deviceManager.js';
 import { SessionManager } from '../../gql/models/sessionManager.js';
 import { VitalsManager } from '../../gql/models/vitalsManager.js';
 import { ProgramManager } from '../../gql/models/programManager.js';
+import { ContentCmsManager } from '../../gql/models/contentCmsManager.js';
+import { NotificationManager } from '../../gql/models/notificationManager.js';
 import Logger, { setContext, runWithContext } from '../../util/logger.js';
 
 
@@ -32,7 +34,7 @@ const formatError = (formattedError, error) => {
 };
 
 const updateAllManagersViewer = (viewer, managers) => {
-  const viewerManagers = ['userManager', 'authManager', 'parameterManager', 'deviceManager', 'sessionManager', 'vitalsManager', 'programManager'];
+  const viewerManagers = ['userManager', 'authManager', 'parameterManager', 'deviceManager', 'sessionManager', 'vitalsManager', 'programManager', 'contentCmsManager', 'notificationManager'];
   viewerManagers.forEach((managerName) => {
     if (managers[managerName]) {
       managers[managerName].viewer = viewer;
@@ -54,8 +56,10 @@ const createContext = async ({ req, res }) => {
   const sessionManager = new SessionManager(req.models, viewer, req.logger);
   const vitalsManager = new VitalsManager(req.models, viewer, req.logger);
   const programManager = new ProgramManager(req.models, viewer, req.logger);
+  const contentCmsManager = new ContentCmsManager(req.models, viewer, req.logger);
+  const notificationManager = new NotificationManager(req.models, viewer, req.logger);
 
-  const managers = { userManager, authManager, parameterManager, deviceManager, sessionManager, vitalsManager, programManager };
+  const managers = { userManager, authManager, parameterManager, deviceManager, sessionManager, vitalsManager, programManager, contentCmsManager, notificationManager };
 
   // Set initial request tracing
   setContext('requestId', requestId);
@@ -172,6 +176,8 @@ const createContext = async ({ req, res }) => {
     sessionManager,
     vitalsManager,
     programManager,
+    contentCmsManager,
+    notificationManager,
     models: req.models,
     sequelize: req.sequelize,
   };
@@ -205,8 +211,10 @@ export default async (httpServer, models) => {
         const sessionManager = new SessionManager(models, null, log);
         const vitalsManager = new VitalsManager(models, null, log);
         const programManager = new ProgramManager(models, null, log);
+        const contentCmsManager = new ContentCmsManager(models, null, log);
+        const notificationManager = new NotificationManager(models, null, log);
 
-        const managers = { userManager, authManager, parameterManager, deviceManager, sessionManager, vitalsManager, programManager };
+        const managers = { userManager, authManager, parameterManager, deviceManager, sessionManager, vitalsManager, programManager, contentCmsManager, notificationManager };
 
         try {
           if (token.startsWith('Bearer ')) {
@@ -250,6 +258,8 @@ export default async (httpServer, models) => {
           sessionManager,
           vitalsManager,
           programManager,
+          contentCmsManager,
+          notificationManager,
           models,
         };
       },

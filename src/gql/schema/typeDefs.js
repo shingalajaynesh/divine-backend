@@ -250,6 +250,174 @@ export const typeDefs = `#graphql
     evidenceUrl: String
   }
 
+  type ContentCategory { id: ID!, slug: String!, name: String!, description: String, icon: String }
+  type MediaAsset { id: ID!, url: String, mimeType: String!, kind: String!, status: String!, altText: String }
+  type ContentTranslation { id: ID!, language: String!, title: String!, summary: String, body: String }
+  type ContentItem {
+    id: ID!, slug: String!, contentType: String!, status: String!, visibility: String!, publishAt: String, unpublishAt: String
+    category: ContentCategory, coverAsset: MediaAsset, translations: [ContentTranslation!]!, translation: ContentTranslation
+  }
+  input ContentTranslationInput { language: String!, title: String!, summary: String, body: String }
+  input CreateContentItemInput {
+    slug: String!, contentType: String!, visibility: String, categoryId: ID, coverAssetId: ID,
+    publishAt: String, unpublishAt: String, translations: [ContentTranslationInput!]!
+  }
+  input RegisterMediaAssetInput { url: String!, mimeType: String!, kind: String!, sizeBytes: Int, durationSeconds: Int, altText: String }
+  type RecentSearch { id: ID!, query: String!, resultCount: Int!, searchedAt: String! }
+  type BookmarkState { contentItemId: ID!, kind: String!, saved: Boolean! }
+  type ContentViewHistory { id: ID!, contentItemId: ID, dailyContentId: ID, lastPositionSeconds: Int!, progressPercent: Float!, completed: Boolean!, viewCount: Int!, viewedAt: String! }
+  input ContentBookmarkInput { contentItemId: ID!, kind: String, saved: Boolean! }
+  input ContentViewInput { contentItemId: ID, dailyContentId: ID, lastPositionSeconds: Int, progressPercent: Float, completed: Boolean }
+  input DailyActivityDetailsInput {
+    dayNumber: Int!
+    quotient: String!
+    durationMins: Int
+    evidence: String
+    notes: String
+  }
+  type Notification { id: ID!, kind: String!, title: String!, body: String!, actionUrl: String, status: String!, readAt: String, scheduledAt: String, expiresAt: String, createdAt: String! }
+  type NotificationInbox { items: [Notification!]!, unreadCount: Int! }
+  type NotificationPreference { id: ID!, pushEnabled: Boolean!, emailEnabled: Boolean!, whatsappEnabled: Boolean!, marketingAllowed: Boolean!, quietStart: String, quietEnd: String, timezone: String! }
+  type ReminderSchedule { id: ID!, reminderType: String!, label: String!, localTime: String!, daysOfWeek: [Int!]!, channel: String!, enabled: Boolean! }
+  input NotificationPreferenceInput { pushEnabled: Boolean, emailEnabled: Boolean, whatsappEnabled: Boolean, marketingAllowed: Boolean, quietStart: String, quietEnd: String, timezone: String }
+  input ReminderScheduleInput { id: ID, reminderType: String, label: String!, localTime: String!, daysOfWeek: [Int!]!, channel: String, enabled: Boolean }
+
+  type UserStreak {
+    id: ID!
+    userId: ID!
+    currentStreak: Int!
+    longestStreak: Int!
+    lastCompletedDate: String
+  }
+
+  type UserAchievement {
+    id: ID!
+    userId: ID!
+    badgeKey: String!
+    unlockedAt: String!
+  }
+
+  type WeeklyReportDay {
+    dayNumber: Int!
+    completed: Boolean!
+    pqCompleted: Boolean!
+    iqCompleted: Boolean!
+    eqCompleted: Boolean!
+    sqCompleted: Boolean!
+    totalDurationMins: Int!
+    reflections: [String!]!
+  }
+
+  type WeeklyReport {
+    weekNumber: Int!
+    completedDaysCount: Int!
+    totalWeekDurationMins: Int!
+    days: [WeeklyReportDay!]!
+  }
+
+  type QuizQuestion {
+    id: ID!
+    dayNumber: Int!
+    questionText: String!
+    options: [String!]!
+    correctOptionIndex: Int!
+    explanation: String!
+  }
+
+  type QuizAttempt {
+    id: ID!
+    userId: ID!
+    dayNumber: Int!
+    selectedOptionIndex: Int!
+    isCorrect: Boolean!
+    attemptedAt: String!
+  }
+
+  type PartnerActivity {
+    id: ID!
+    dayNumber: Int!
+    title: String!
+    description: String!
+  }
+
+  type PartnerActivityLog {
+    id: ID!
+    userId: ID!
+    dayNumber: Int!
+    partnerAcknowledged: Boolean!
+    completedAt: String
+  }
+
+  type SensoryActivity {
+    id: ID!
+    dayNumber: Int!
+    senseType: String!
+    title: String!
+    description: String!
+  }
+
+  type SensoryActivityLog {
+    id: ID!
+    userId: ID!
+    dayNumber: Int!
+    completed: Boolean!
+    completedAt: String
+  }
+
+  type DailyProgress {
+    id: ID!
+    userId: ID!
+    dayNumber: Int!
+    pqCompleted: Boolean!
+    iqCompleted: Boolean!
+    eqCompleted: Boolean!
+    sqCompleted: Boolean!
+    pqDurationMins: Int
+    iqDurationMins: Int
+    eqDurationMins: Int
+    sqDurationMins: Int
+    pqEvidence: String
+    iqEvidence: String
+    eqEvidence: String
+    sqEvidence: String
+    pqNotes: String
+    iqNotes: String
+    eqNotes: String
+    sqNotes: String
+    notes: String
+    completedAt: String
+    createdAt: String!
+    updatedAt: String!
+  }
+
+  type TimelineDayStatus {
+    dayNumber: Int!
+    locked: Boolean!
+    completed: Boolean!
+    pqCompleted: Boolean!
+    iqCompleted: Boolean!
+    eqCompleted: Boolean!
+    sqCompleted: Boolean!
+  }
+
+  type TimelineOverview {
+    currentDay: Int!
+    currentWeek: Int!
+    currentTrimester: Int!
+    selectedDay: Int!
+    selectedWeek: Int!
+    selectedMonth: Int!
+    selectedTrimester: Int!
+    weekStartDay: Int!
+    weekEndDay: Int!
+    isLocked: Boolean!
+    unlockDate: String
+    completedCount: Int!
+    progressPercent: Int!
+    selectedProgress: DailyProgress
+    days: [TimelineDayStatus!]!
+  }
+
   input SubmitInquiryInput {
     name: String!
     email: String
@@ -281,6 +449,27 @@ export const typeDefs = `#graphql
     getInquiries(status: String, search: String, limit: Int, offset: Int): InquiryConnection!
     programCatalog: [Program!]!
     myProgramEnrollments: [ProgramEnrollment!]!
+    contentFeed(language: String, categorySlug: String, contentType: String, limit: Int, offset: Int): [ContentItem!]!
+    manageContent(status: String, search: String, limit: Int, offset: Int): [ContentItem!]!
+    searchContent(query: String!, language: String, categorySlug: String, contentType: String, limit: Int, offset: Int): [ContentItem!]!
+    recentContentSearches: [RecentSearch!]!
+    savedContent(kind: String, language: String): [ContentItem!]!
+    myNotifications(status: String, limit: Int, offset: Int): NotificationInbox!
+    myNotificationPreferences: NotificationPreference!
+    myReminderSchedules: [ReminderSchedule!]!
+    myTimelineOverview(dayNumber: Int): TimelineOverview!
+    myDailyProgress(dayNumber: Int!): DailyProgress
+    myDailyProgressRange(startDay: Int!, endDay: Int!): [DailyProgress!]!
+    myStreak: UserStreak
+    myAchievements: [UserAchievement!]!
+    myWeeklyReport(weekNumber: Int!): WeeklyReport!
+    getDailyQuiz(dayNumber: Int!): QuizQuestion
+    getMyQuizAttempt(dayNumber: Int!): QuizAttempt
+    getPartnerActivity(dayNumber: Int!): PartnerActivity
+    getMyPartnerActivityLog(dayNumber: Int!): PartnerActivityLog
+    getSensoryActivity(dayNumber: Int!): SensoryActivity
+    getMySensoryActivityLog(dayNumber: Int!): SensoryActivityLog
+    getContentViewHistory(contentItemId: ID, dailyContentId: ID): ContentViewHistory
   }
 
   type Mutation {
@@ -330,5 +519,21 @@ export const typeDefs = `#graphql
     replyToInquiry(id: ID!, content: String!): Inquiry!
     enrollInProgram(programId: ID!): ProgramEnrollment!
     updateActivityProgress(activityId: ID!, input: ActivityProgressInput!): ActivityProgress!
+    createContentItem(input: CreateContentItemInput!): ContentItem!
+    publishContentItem(id: ID!): ContentItem!
+    registerMediaAsset(input: RegisterMediaAssetInput!): MediaAsset!
+    setContentBookmark(input: ContentBookmarkInput!): BookmarkState!
+    clearRecentContentSearches: Boolean!
+    recordContentView(input: ContentViewInput!): ContentViewHistory!
+    setNotificationStatus(id: ID!, status: String!): Notification!
+    markAllNotificationsRead: Boolean!
+    updateNotificationPreferences(input: NotificationPreferenceInput!): NotificationPreference!
+    saveReminderSchedule(input: ReminderScheduleInput!): ReminderSchedule!
+    deleteReminderSchedule(id: ID!): Boolean!
+    toggleDailyActivity(dayNumber: Int!, quotient: String!): DailyProgress!
+    saveDailyActivityDetails(input: DailyActivityDetailsInput!): DailyProgress!
+    submitQuizAnswer(dayNumber: Int!, selectedOptionIndex: Int!): QuizAttempt!
+    acknowledgePartnerActivity(dayNumber: Int!): PartnerActivityLog!
+    toggleSensoryActivity(dayNumber: Int!): SensoryActivityLog!
   }
 `;

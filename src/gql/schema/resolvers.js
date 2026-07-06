@@ -8,6 +8,9 @@ import { vitalsResolvers } from './resolvers/vitals.js';
 import { bookingResolvers } from './resolvers/booking.js';
 import { inquiryResolvers } from './resolvers/inquiry.js';
 import { programResolvers } from './resolvers/program.js';
+import { contentCmsResolvers } from './resolvers/contentCms.js';
+import { notificationResolvers } from './resolvers/notification.js';
+import { timelineResolvers } from './resolvers/timeline.js';
 
 export const resolvers = {
   User: {
@@ -34,6 +37,15 @@ export const resolvers = {
   InquiryResponse: {
     ...inquiryResolvers.InquiryResponse,
   },
+  ContentItem: {
+    ...contentCmsResolvers.ContentItem,
+  },
+  DailyProgress: {
+    ...timelineResolvers.DailyProgress,
+  },
+  TimelineOverview: {
+    ...timelineResolvers.TimelineOverview,
+  },
   Query: {
     ...userResolvers.Query,
     ...contentResolvers.Query,
@@ -45,6 +57,9 @@ export const resolvers = {
     ...bookingResolvers.Query,
     ...inquiryResolvers.Query,
     ...programResolvers.Query,
+    ...contentCmsResolvers.Query,
+    ...notificationResolvers.Query,
+    ...timelineResolvers.Query,
   },
   Mutation: {
     ...userResolvers.Mutation,
@@ -57,5 +72,8 @@ export const resolvers = {
     ...bookingResolvers.Mutation,
     ...inquiryResolvers.Mutation,
     ...programResolvers.Mutation,
+    ...contentCmsResolvers.Mutation,
+    ...notificationResolvers.Mutation,
+    ...timelineResolvers.Mutation,
   }
 };

@@ -8,12 +8,13 @@
     "dev": "nodemon src/index.js",
     "test": "node --test",
     "db:migrate": "sequelize-cli db:migrate",
-    "db:sync": "sequelize-cli db:migrate && node src/scripts/sync-db.js"
+    "db:sync": "sequelize-cli db:migrate && node src/scripts/sync-db.js",
+    "promote-user": "node src/scripts/promote-user.js"
   },
   "dependencies": {
     "@apollo/server": "^4.11.0",
     "cors": "^2.8.5",
-    "divine-data-models": "git+https://github.com/shingalajaynesh/divine-data-models.git",
+    "divine-data-models": "file:../divine-data-models",
     "dotenv": "^16.4.7",
     "express": "^4.21.2",
     "express-rate-limit": "^8.5.2",
