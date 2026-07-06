@@ -341,6 +341,13 @@ export const typeDefs = `#graphql
     features: [String!]!
   }
 
+  type RazorpayOrder {
+    id: String!
+    amount: Int!
+    currency: String!
+    receipt: String!
+  }
+
   type UserSubscription {
     id: ID!
     userId: ID!
@@ -529,6 +536,7 @@ export const typeDefs = `#graphql
     id: ID!, slug: String!, contentType: String!, status: String!, visibility: String!, publishAt: String, unpublishAt: String
     category: ContentCategory, coverAsset: MediaAsset, translations: [ContentTranslation!]!, translation: ContentTranslation
     trimester1Safe: Boolean, trimester2Safe: Boolean, trimester3Safe: Boolean, contraindications: String
+    medicalReviewed: Boolean
   }
   input ContentTranslationInput { language: String!, title: String!, summary: String, body: String }
   input CreateContentItemInput {
@@ -875,6 +883,7 @@ export const typeDefs = `#graphql
     updateActivityProgress(activityId: ID!, input: ActivityProgressInput!): ActivityProgress!
     createContentItem(input: CreateContentItemInput!): ContentItem!
     publishContentItem(id: ID!): ContentItem!
+    reviewContentItem(id: ID!, reviewed: Boolean!): ContentItem!
     registerMediaAsset(input: RegisterMediaAssetInput!): MediaAsset!
     setContentBookmark(input: ContentBookmarkInput!): BookmarkState!
     clearRecentContentSearches: Boolean!
@@ -929,6 +938,8 @@ export const typeDefs = `#graphql
     startTrial(planId: ID!): UserSubscription!
     subscribeToPlan(planId: ID!, couponCode: String): UserSubscription!
     cancelSubscription: UserSubscription!
+    createRazorpayOrder(planId: ID!, couponCode: String): RazorpayOrder!
+    verifyRazorpayPayment(planId: ID!, razorpayOrderId: String!, razorpayPaymentId: String!, razorpaySignature: String!): UserSubscription!
     addCrmNote(userId: ID!, note: String!): CrmNote!
     logAdminAction(action: String!, targetType: String, targetId: String, payload: String): AdminAuditLog!
   }

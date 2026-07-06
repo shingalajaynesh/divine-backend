@@ -70,6 +70,16 @@ export const subscriptionResolvers = {
     cancelSubscription: authenticate(async (parent, args, context) => {
       const service = new SubscriptionService(context.models, context.sequelize);
       return service.cancelSubscription(context.viewer.id);
+    }),
+
+    createRazorpayOrder: authenticate(async (parent, { planId, couponCode }, context) => {
+      const service = new SubscriptionService(context.models, context.sequelize);
+      return service.createRazorpayOrder(context.viewer.id, planId, couponCode);
+    }),
+
+    verifyRazorpayPayment: authenticate(async (parent, { planId, razorpayOrderId, razorpayPaymentId, razorpaySignature }, context) => {
+      const service = new SubscriptionService(context.models, context.sequelize);
+      return service.verifyRazorpayPayment(context.viewer.id, planId, razorpayOrderId, razorpayPaymentId, razorpaySignature);
     })
   }
 };

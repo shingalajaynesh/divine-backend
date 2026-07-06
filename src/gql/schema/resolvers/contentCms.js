@@ -17,6 +17,7 @@ export const contentCmsResolvers = {
   Mutation: {
     createContentItem: staff((parent, args, context) => context.contentCmsManager.create(args.input)),
     publishContentItem: authenticate(authorizeRoles(['ADMIN'], (parent, args, context) => context.contentCmsManager.publish(args.id))),
+    reviewContentItem: staff((parent, args, context) => context.contentCmsManager.review(args.id, args.reviewed)),
     registerMediaAsset: staff((parent, args, context) => context.contentCmsManager.registerMedia(args.input)),
     setContentBookmark: authenticate((parent, args, context) => context.contentCmsManager.setBookmark(args.input)),
     clearRecentContentSearches: authenticate((parent, args, context) => context.contentCmsManager.clearRecentSearches()),

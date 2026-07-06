@@ -24,7 +24,9 @@ export class ContentCmsManager extends BaseManager {
     if (activeEnrollment > 0) allowedVisibility.push('enrolled');
     if (this.viewer.subscriptionStatus && this.viewer.subscriptionStatus !== 'free') allowedVisibility.push('premium');
     const where = {
-      status: 'published', visibility: { [Op.in]: allowedVisibility },
+      status: 'published',
+      medicalReviewed: true,
+      visibility: { [Op.in]: allowedVisibility },
       [Op.and]: [
         { [Op.or]: [{ centerId: null }, ...(this.viewer.centerId ? [{ centerId: this.viewer.centerId }] : [])] },
         { [Op.or]: [{ publishAt: null }, { publishAt: { [Op.lte]: now } }] },
@@ -51,6 +53,7 @@ export class ContentCmsManager extends BaseManager {
     return {
       ...extra,
       status: 'published',
+      medicalReviewed: true,
       visibility: { [Op.in]: await this.memberVisibility() },
       [Op.and]: [
         { [Op.or]: [{ centerId: null }, ...(this.viewer.centerId ? [{ centerId: this.viewer.centerId }] : [])] },
@@ -180,6 +183,17 @@ export class ContentCmsManager extends BaseManager {
     if (!item) throw new GraphQLError('Content item not found.', { extensions: { code: 'NOT_FOUND' } });
     if (!item.translations?.length) throw new GraphQLError('Content requires a translation before publishing.', { extensions: { code: 'BAD_USER_INPUT' } });
     await item.update({ status: 'published', publishAt: item.publishAt || new Date(), updatedBy: this.viewer.id });
+    return item.reload({ include: this.includes() });
+  }
+
+  async review(id, medicalReviewed = true) {
+    const item = await this.models.ContentItem.findOne({ where: { id, centerId: this.viewer.centerId || null } });
+    if (!item) throw new GraphQLError('Content item not found.', { extensions: { code: 'NOT_FOUND' } });
+    // Require admin or staff role
+    if (this.viewer.role?.roleType !== 'ADMIN' && this.viewer.role?.roleType !== 'STAFF') {
+      throw new GraphQLError('Unauthorized access', { extensions: { code: 'UNAUTHORIZED' } });
+    }
+    await item.update({ medicalReviewed, updatedBy: this.viewer.id });
     return item.reload({ include: this.includes() });
   }
 
