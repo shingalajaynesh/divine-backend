@@ -11,20 +11,25 @@ export const allowedOrigins = splitCsv(
     'http://localhost:3000,http://localhost:5173,http://localhost:5174,http://localhost:8081',
 );
 
-export const clerkAuthorizedParties = splitCsv(
-  process.env.CLERK_AUTHORIZED_PARTIES || process.env.ALLOWED_ORIGINS || '',
-);
-
 export const assertSecureConfiguration = () => {
-  if (!process.env.CLERK_SECRET_KEY && !process.env.CLERK_JWT_KEY) {
-    throw new Error('CLERK_SECRET_KEY or CLERK_JWT_KEY is required.');
+  if (!process.env.FIREBASE_PROJECT_ID) {
+    throw new Error('FIREBASE_PROJECT_ID is required.');
+  }
+  if (Boolean(process.env.FIREBASE_PRIVATE_KEY) !== Boolean(process.env.FIREBASE_CLIENT_EMAIL)) {
+    throw new Error('FIREBASE_PRIVATE_KEY and FIREBASE_CLIENT_EMAIL must be provided together.');
   }
 
   if (process.env.NODE_ENV === 'production') {
-    const required = ['DB_NAME', 'DB_USER', 'DB_PASSWORD', 'DB_HOST', 'ALLOWED_ORIGINS'];
-    const missing = required.filter((key) => !process.env[key]);
-    if (missing.length > 0) {
-      throw new Error(`Missing required production configuration: ${missing.join(', ')}`);
+    if (process.env.DATABASE_URL) {
+      if (!process.env.ALLOWED_ORIGINS) {
+        throw new Error('Missing required production configuration: ALLOWED_ORIGINS');
+      }
+    } else {
+      const required = ['DB_NAME', 'DB_USER', 'DB_PASSWORD', 'DB_HOST', 'ALLOWED_ORIGINS'];
+      const missing = required.filter((key) => !process.env[key]);
+      if (missing.length > 0) {
+        throw new Error(`Missing required production configuration: ${missing.join(', ')}`);
+      }
     }
   }
 };

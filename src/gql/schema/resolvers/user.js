@@ -69,13 +69,13 @@ export const userResolvers = {
   Mutation: {
     syncUser: async (parent, args, context) => {
       const { log, authManager } = context;
-      if (!context.clerkUserId) {
-        throw new GraphQLError('A verified Clerk session is required.', {
+      if (!context.firebaseUserId) {
+        throw new GraphQLError('A verified Firebase session is required.', {
           extensions: { code: 'UNAUTHENTICATED' },
         });
       }
-      log.info('Clerk user sync mutation triggered');
-      return await authManager.syncClerkUserById(context.clerkUserId);
+      log.info('Firebase user sync mutation triggered');
+      return await authManager.syncFirebaseUser(context.firebaseAuth);
     },
     
     updateUser: authenticate(authorizeSelfOrRoles((args) => args.id, ['ADMIN'], async (parent, args, context) => {

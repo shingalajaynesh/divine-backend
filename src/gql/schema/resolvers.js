@@ -7,6 +7,7 @@ import { parameterResolvers } from './resolvers/parameter.js';
 import { vitalsResolvers } from './resolvers/vitals.js';
 import { bookingResolvers } from './resolvers/booking.js';
 import { inquiryResolvers } from './resolvers/inquiry.js';
+import { programResolvers } from './resolvers/program.js';
 
 export const resolvers = {
   User: {
@@ -43,6 +44,7 @@ export const resolvers = {
     ...vitalsResolvers.Query,
     ...bookingResolvers.Query,
     ...inquiryResolvers.Query,
+    ...programResolvers.Query,
   },
   Mutation: {
     ...userResolvers.Mutation,
@@ -54,5 +56,6 @@ export const resolvers = {
     ...vitalsResolvers.Mutation,
     ...bookingResolvers.Mutation,
     ...inquiryResolvers.Mutation,
+    ...programResolvers.Mutation,
   }
 };

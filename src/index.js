@@ -4,9 +4,10 @@ import dotenv from 'dotenv';
 import cors from 'cors';
 import helmet from 'helmet';
 import { rateLimit } from 'express-rate-limit';
-import { clerkMiddleware } from '@clerk/express';
+import { initializeApp, cert } from 'firebase-admin/app';
+import { createPrivateKey } from 'node:crypto';
 import { v4 as uuidv4 } from 'uuid';
-import { DataModels } from 'divine-data-models';
+import { initializeDataModels } from './config/db-init.js';
 import Logger, { runWithContext } from './util/logger.js';
 import bootstrapApollo from './middlewares/apollo/index.js';
 import {
@@ -23,23 +24,33 @@ const PORT = process.env.PORT || 4000;
 const startServer = async () => {
   try {
     assertSecureConfiguration();
-    // 1. Initialize centralized database models
-    const dataModels = new DataModels(new Logger('Database'));
-    const useSSL = process.env.DB_SSL === 'true';
-    dataModels.init({
-      database: process.env.DB_NAME || 'divine_garbh_sanskar',
-      dbUser: process.env.DB_USER || 'postgres',
-      dbPassword: process.env.DB_PASSWORD || 'postgres',
-      host: process.env.DB_HOST || 'localhost',
-      port: parseInt(process.env.DB_PORT || '5432', 10),
-      dialect: 'postgres',
-      dialectOptions: useSSL ? {
-        ssl: {
-          require: true,
-          rejectUnauthorized: false
-        }
-      } : {}
+
+    // Initialize Firebase Admin SDK
+    const firebasePrivateKey = process.env.FIREBASE_PRIVATE_KEY?.replace(/\\n/g, '\n').trim();
+    let hasServiceAccount = false;
+    if (firebasePrivateKey?.startsWith('-----BEGIN PRIVATE KEY-----') && process.env.FIREBASE_CLIENT_EMAIL?.includes('@')) {
+      try {
+        createPrivateKey(firebasePrivateKey);
+        hasServiceAccount = true;
+      } catch {
+        log.warn('Ignoring an invalid Firebase private key; replace it with a service-account key before production.');
+      }
+    }
+    if (!hasServiceAccount) {
+      log.warn('Firebase service account is not configured; ID-token verification will use the project ID only.');
+    }
+    initializeApp({
+      projectId: process.env.FIREBASE_PROJECT_ID,
+      ...(hasServiceAccount ? {
+        credential: cert({
+          projectId: process.env.FIREBASE_PROJECT_ID,
+          privateKey: firebasePrivateKey,
+          clientEmail: process.env.FIREBASE_CLIENT_EMAIL,
+        }),
+      } : {}),
     });
+    // 1. Initialize centralized database models
+    const dataModels = initializeDataModels(new Logger('Database'));
 
     log.info('Centralized database models initialized successfully.');
 
@@ -47,11 +58,6 @@ const startServer = async () => {
     const app = express();
     app.set('trust proxy', 1);
     app.use(cors(corsOptions));
-    app.use(
-      clerkMiddleware({
-        authorizedParties: allowedOrigins,
-      }),
-    );
     app.use(helmet({ crossOriginResourcePolicy: { policy: 'cross-origin' } }));
     app.use(
       rateLimit({

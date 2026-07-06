@@ -8,10 +8,14 @@ Create a `.env` file in the root of the `divine-backend` directory:
 
 ```env
 PORT=4000
-DATABASE_URL=postgres://user:password@localhost:5432/divine_db
-JWT_SECRET=your_jwt_signing_key
-CLERK_SECRET_KEY=your_clerk_secret_key
-CLERK_JWT_KEY=your_optional_clerk_pem_public_key
+DB_NAME=divine_garbh_sanskar
+DB_USER=postgres
+DB_PASSWORD=replace_with_a_strong_password
+DB_HOST=localhost
+DB_PORT=5432
+FIREBASE_PROJECT_ID=your_firebase_project_id
+FIREBASE_CLIENT_EMAIL=your_service_account_email
+FIREBASE_PRIVATE_KEY="your_service_account_private_key"
 ALLOWED_ORIGINS=http://localhost:5173,http://localhost:5174,http://localhost:8081
 ```
 
@@ -25,12 +29,11 @@ ALLOWED_ORIGINS=http://localhost:5173,http://localhost:5174,http://localhost:808
 
 ## Security and model setup
 
-- Clerk sessions are verified by the official Clerk backend middleware. The API never accepts client-supplied identity payloads.
+- Firebase ID tokens are verified by the official Firebase Admin SDK. The API never accepts client-supplied identity payloads.
 - Keep `.env` untracked and configure production values through the deployment secret manager.
-- `ALLOWED_ORIGINS` and `CLERK_AUTHORIZED_PARTIES` are comma-separated allowlists for the marketing site, member app, and mobile development origin.
+- `ALLOWED_ORIGINS` is a comma-separated allowlist for the marketing site, member app, and mobile development origin.
 - Publish the matching `divine-data-models` revision before deploying the backend, then run `npm run db:migrate`.
 
 ## Deployment Notes (Render)
 
-When deploying to Render, the project uses the remote GitHub link for `divine-data-models` to avoid file-cloning path errors. Ensure the deploy uses the updated `package.json` referencing:
-`"divine-data-models": "git+https://github.com/shingalajaynesh/divine-data-models.git"`
+The backend currently uses the sibling `divine-data-models` package. Deploy both directories from the same workspace or publish the matching model package revision before deployment.

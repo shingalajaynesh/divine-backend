@@ -22,6 +22,7 @@ services:
       - "4000:4000" # Expose Apollo GraphQL server on port 4000
     environment:
       - PORT=4000
+      - DATABASE_URL=${DATABASE_URL:-}
       - DB_NAME=${DB_NAME:-divine_garbh_sanskar}
       - DB_USER=${DB_USER:-postgres}
       - DB_PASSWORD=${DB_PASSWORD:?Set DB_PASSWORD in .env}
@@ -31,10 +32,10 @@ services:
       - SLOW_QUERY_THRESHOLD=100
       - LOG_LEVEL=info
       - LOG_FORMAT=dev
-      - CLERK_SECRET_KEY=${CLERK_SECRET_KEY:?Set CLERK_SECRET_KEY in .env}
-      - CLERK_JWT_KEY=${CLERK_JWT_KEY:-}
+      - FIREBASE_PROJECT_ID=${FIREBASE_PROJECT_ID:?Set FIREBASE_PROJECT_ID in .env}
+      - FIREBASE_CLIENT_EMAIL=${FIREBASE_CLIENT_EMAIL:-}
+      - FIREBASE_PRIVATE_KEY=${FIREBASE_PRIVATE_KEY:-}
       - ALLOWED_ORIGINS=${ALLOWED_ORIGINS:-http://localhost:3000,http://localhost:5173,http://localhost:5174,http://localhost:8081}
-      - CLERK_AUTHORIZED_PARTIES=${CLERK_AUTHORIZED_PARTIES:-http://localhost:3000,http://localhost:5173,http://localhost:5174,http://localhost:8081}
     depends_on:
       - postgres
 

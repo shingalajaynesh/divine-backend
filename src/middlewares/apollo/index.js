@@ -2,8 +2,8 @@ import { ApolloServer } from '@apollo/server';
 import { ApolloServerPluginLandingPageDisabled } from '@apollo/server/plugin/disabled';
 import { ApolloServerPluginLandingPageLocalDefault } from '@apollo/server/plugin/landingPage/default';
 import express from 'express';
-import { getAuth } from '@clerk/express';
-import { verifyToken } from '@clerk/backend';
+import { getAuth } from 'firebase-admin/auth';
+import { Op } from 'sequelize';
 import { v4 as uuidv4 } from 'uuid';
 import GraphQlLoggingPlugin from './graphql_logging_plugin.js';
 import { expressMiddleware } from '@apollo/server/express4';
@@ -18,8 +18,9 @@ import { ParameterManager } from '../../gql/models/parameterManager.js';
 import { DeviceManager } from '../../gql/models/deviceManager.js';
 import { SessionManager } from '../../gql/models/sessionManager.js';
 import { VitalsManager } from '../../gql/models/vitalsManager.js';
+import { ProgramManager } from '../../gql/models/programManager.js';
 import Logger, { setContext, runWithContext } from '../../util/logger.js';
-import { clerkAuthorizedParties } from '../../config/security.js';
+
 
 const pubSub = new PubSub();
 
@@ -31,7 +32,7 @@ const formatError = (formattedError, error) => {
 };
 
 const updateAllManagersViewer = (viewer, managers) => {
-  const viewerManagers = ['userManager', 'authManager', 'parameterManager', 'deviceManager', 'sessionManager', 'vitalsManager'];
+  const viewerManagers = ['userManager', 'authManager', 'parameterManager', 'deviceManager', 'sessionManager', 'vitalsManager', 'programManager'];
   viewerManagers.forEach((managerName) => {
     if (managers[managerName]) {
       managers[managerName].viewer = viewer;
@@ -52,85 +53,103 @@ const createContext = async ({ req, res }) => {
   const deviceManager = new DeviceManager(req.models, viewer, req.logger);
   const sessionManager = new SessionManager(req.models, viewer, req.logger);
   const vitalsManager = new VitalsManager(req.models, viewer, req.logger);
+  const programManager = new ProgramManager(req.models, viewer, req.logger);
 
-  const managers = { userManager, authManager, parameterManager, deviceManager, sessionManager, vitalsManager };
+  const managers = { userManager, authManager, parameterManager, deviceManager, sessionManager, vitalsManager, programManager };
 
   // Set initial request tracing
   setContext('requestId', requestId);
 
+  let firebaseUserId = null;
+  let firebaseAuth = null;
   try {
-    const clerkAuth = getAuth(req);
-    if (clerkAuth.isAuthenticated && clerkAuth.userId) {
-        const clerkId = clerkAuth.userId;
-        const sid = clerkAuth.sessionId;
-          // 2. Fetch local user matching clerkId
-          viewer = await req.models.User.findOne({
-            where: { clerkId },
-            include: [
-              { model: req.models.Role, as: 'role' },
-              { model: req.models.Center, as: 'center' }
-            ]
-          });
+    const authHeader = req.headers.authorization || '';
+    if (authHeader.startsWith('Bearer ')) {
+      const token = authHeader.substring(7);
+      const decodedToken = await getAuth().verifyIdToken(token);
+      firebaseAuth = decodedToken;
+      firebaseUserId = decodedToken.uid;
+      const emailAddress = decodedToken.email?.trim().toLowerCase() || '';
+      const sid = firebaseUserId + '_' + decodedToken.auth_time;
 
-          if (viewer) {
-            setContext('userId', viewer.id);
-            setContext('centerId', viewer.centerId);
-            
-            // Update viewer in managers
-            updateAllManagersViewer(viewer, managers);
+      // 2. Fetch local user matching firebaseUid or emailAddress
+      viewer = await req.models.User.findOne({
+        where: {
+          [req.sequelize.Sequelize.Op.or]: [
+            { firebaseUid: firebaseUserId },
+            ...(decodedToken.email_verified && emailAddress ? [{ emailAddress, firebaseUid: null }] : [])
+          ]
+        },
+        include: [
+          { model: req.models.Role, as: 'role' },
+          { model: req.models.Center, as: 'center' }
+        ]
+      });
 
-            // 3. Extract device headers
-            const deviceInfo = {
-              deviceId: req.headers['x-device-id'] || '',
-              deviceName: req.headers['x-device-name'] || '',
-              deviceType: req.headers['x-device-type'] || 'web',
-              userAgent: req.headers['user-agent'] || '',
-              ipAddress: req.ip || req.connection.remoteAddress || '',
-            };
+      if (viewer) {
+        // Auto-link firebaseUid if it was found via email but not yet set
+        if (!viewer.firebaseUid) {
+          await viewer.update({ firebaseUid: firebaseUserId });
+        }
 
-            // 4. Validate device whitelisting
-            const isDeviceOp = req.body?.query?.includes('registerDevice') || 
-                               req.body?.query?.includes('deauthorizeDevice') || 
-                               req.body?.query?.includes('getMyDevices');
+        setContext('userId', viewer.id);
+        setContext('centerId', viewer.centerId);
+        
+        // Update viewer in managers
+        updateAllManagersViewer(viewer, managers);
 
-            const deviceCheck = await deviceManager.validateDevice(viewer.id, deviceInfo.deviceId, viewer.centerId);
-            if (!deviceCheck.isValid) {
-              req.logger.warn(`Device check failed for user ${viewer.id}: ${deviceCheck.reason}`);
-              if (deviceCheck.reason !== 'Device whitelisting disabled' && !isDeviceOp) {
-                throw new Error(`Device unauthorized: ${deviceCheck.reason}`);
-              }
-            } else if (deviceInfo.deviceId) {
-              // Register/update device
-              await deviceManager.registerDevice(viewer.id, deviceInfo);
-            }
+        // 3. Extract device headers
+        const deviceInfo = {
+          deviceId: req.headers['x-device-id'] || '',
+          deviceName: req.headers['x-device-name'] || '',
+          deviceType: req.headers['x-device-type'] || 'web',
+          userAgent: req.headers['user-agent'] || '',
+          ipAddress: req.ip || req.connection.remoteAddress || '',
+        };
 
-            // 5. Validate User Session
-            if (sid) {
-              const sessionCheck = await sessionManager.validateSession(sid, viewer.centerId);
-              if (!sessionCheck.valid) {
-                if (sessionCheck.reason === 'SESSION_NOT_FOUND') {
-                  try {
-                    // Register session locally
-                    await sessionManager.createSession(viewer.id, {
-                      ...deviceInfo,
-                      id: sid
-                    });
-                  } catch (e) {
-                    if (e.name === 'SequelizeUniqueConstraintError') {
-                      req.logger.info(`Session ${sid} was registered concurrently by another request. skipping duplicate insert.`);
-                    } else {
-                      throw e;
-                    }
-                  }
+        // 4. Validate device whitelisting
+        const isDeviceOp = req.body?.query?.includes('registerDevice') || 
+                           req.body?.query?.includes('deauthorizeDevice') || 
+                           req.body?.query?.includes('getMyDevices');
+
+        const deviceCheck = await deviceManager.validateDevice(viewer.id, deviceInfo.deviceId, viewer.centerId);
+        if (!deviceCheck.isValid) {
+          req.logger.warn(`Device check failed for user ${viewer.id}: ${deviceCheck.reason}`);
+          if (deviceCheck.reason !== 'Device whitelisting disabled' && !isDeviceOp) {
+            throw new Error(`Device unauthorized: ${deviceCheck.reason}`);
+          }
+        } else if (deviceInfo.deviceId) {
+          // Register/update device
+          await deviceManager.registerDevice(viewer.id, deviceInfo);
+        }
+
+        // 5. Validate User Session
+        if (sid) {
+          const sessionCheck = await sessionManager.validateSession(sid, viewer.centerId);
+          if (!sessionCheck.valid) {
+            if (sessionCheck.reason === 'SESSION_NOT_FOUND') {
+              try {
+                // Register session locally
+                await sessionManager.createSession(viewer.id, {
+                  ...deviceInfo,
+                  id: sid
+                });
+              } catch (e) {
+                if (e.name === 'SequelizeUniqueConstraintError') {
+                  req.logger.info(`Session ${sid} was registered concurrently by another request. skipping duplicate insert.`);
                 } else {
-                  req.logger.warn(`User session invalid: ${sessionCheck.reason}`);
-                  throw new Error(`Session invalid: ${sessionCheck.reason}`);
+                  throw e;
                 }
               }
+            } else {
+              req.logger.warn(`User session invalid: ${sessionCheck.reason}`);
+              throw new Error(`Session invalid: ${sessionCheck.reason}`);
             }
-          } else {
-            req.logger.warn('Clerk user validated but not found in local database:', { clerkId });
           }
+        }
+      } else {
+        req.logger.warn('Firebase user validated but not found in local database:', { firebaseUserId });
+      }
     }
   } catch (error) {
     req.logger.error('Error establishing context user authentication:', error);
@@ -141,7 +160,8 @@ const createContext = async ({ req, res }) => {
     req,
     res,
     viewer,
-    clerkUserId: getAuth(req).userId || null,
+    firebaseUserId: firebaseUserId || null,
+    firebaseAuth,
     log: req.logger,
     requestId,
     pubSub,
@@ -151,6 +171,7 @@ const createContext = async ({ req, res }) => {
     deviceManager,
     sessionManager,
     vitalsManager,
+    programManager,
     models: req.models,
     sequelize: req.sequelize,
   };
@@ -183,28 +204,32 @@ export default async (httpServer, models) => {
         const deviceManager = new DeviceManager(models, null, log);
         const sessionManager = new SessionManager(models, null, log);
         const vitalsManager = new VitalsManager(models, null, log);
+        const programManager = new ProgramManager(models, null, log);
 
-        const managers = { userManager, authManager, parameterManager, deviceManager, sessionManager, vitalsManager };
+        const managers = { userManager, authManager, parameterManager, deviceManager, sessionManager, vitalsManager, programManager };
 
         try {
           if (token.startsWith('Bearer ')) {
-            const verifiedToken = await verifyToken(token.replace('Bearer ', ''), {
-              jwtKey: process.env.CLERK_JWT_KEY,
-              secretKey: process.env.CLERK_SECRET_KEY,
-              ...(clerkAuthorizedParties.length > 0
-                ? { authorizedParties: clerkAuthorizedParties }
-                : {}),
-            });
-            if (verifiedToken?.sub) {
-              const clerkId = verifiedToken.sub;
+            const verifiedToken = await getAuth().verifyIdToken(token.replace('Bearer ', ''));
+            if (verifiedToken?.uid) {
+              const firebaseUid = verifiedToken.uid;
+              const emailAddress = verifiedToken.email?.trim().toLowerCase() || '';
               viewer = await models.User.findOne({
-                where: { clerkId },
+                where: {
+                  [Op.or]: [
+                    { firebaseUid },
+                    ...(verifiedToken.email_verified && emailAddress ? [{ emailAddress, firebaseUid: null }] : [])
+                  ]
+                },
                 include: [
                   { model: models.Role, as: 'role' },
                   { model: models.Center, as: 'center' }
                 ]
               });
               if (viewer) {
+                if (!viewer.firebaseUid) {
+                  await viewer.update({ firebaseUid });
+                }
                 updateAllManagersViewer(viewer, managers);
               }
             }
@@ -224,6 +249,7 @@ export default async (httpServer, models) => {
           deviceManager,
           sessionManager,
           vitalsManager,
+          programManager,
           models,
         };
       },

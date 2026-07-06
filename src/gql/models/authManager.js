@@ -1,32 +1,29 @@
 import { BaseManager } from './baseManager.js';
 import { v4 as uuidv4 } from 'uuid';
-import { createClerkClient } from '@clerk/express';
 
 export class AuthManager extends BaseManager {
-  /**
-   * Fetches the authenticated Clerk user server-side before synchronizing it.
-   * Client-provided identity payloads are intentionally never trusted.
-   */
-  async syncClerkUserById(clerkId) {
-    if (!clerkId) throw new Error('Verified Clerk user ID is required');
-    const clerk = createClerkClient({ secretKey: process.env.CLERK_SECRET_KEY });
-    const clerkUser = await clerk.users.getUser(clerkId);
-    return this.syncClerkUser(clerkUser);
-  }
-
-  async syncClerkUser(clerkUser) {
-    const clerkId = clerkUser.id;
-    const primaryEmail = clerkUser.emailAddresses?.find(
-      (email) => email.id === clerkUser.primaryEmailAddressId,
-    );
-    const emailAddress = (primaryEmail || clerkUser.emailAddresses?.[0])?.emailAddress
-      ?.trim()
-      .toLowerCase();
-    const firstName = clerkUser.firstName?.trim() || null;
-    const lastName = clerkUser.lastName?.trim() || null;
-
+  async syncFirebaseUser(firebaseUser) {
+    if (!firebaseUser?.uid) throw new Error('Verified Firebase identity is required');
+    const firebaseUid = firebaseUser.uid;
+    let emailAddress = firebaseUser.email?.trim().toLowerCase() || null;
+    
+    // Auto-generate placeholder email if user logged in via phone auth only
     if (!emailAddress) {
-      throw new Error('Email address is required to sync Clerk user');
+      if (firebaseUser.phone_number) {
+        emailAddress = `${firebaseUser.phone_number.replace('+', '')}@firebase.local`;
+      } else {
+        emailAddress = `${firebaseUid}@firebase.local`;
+      }
+    }
+
+    let firstName = null;
+    let lastName = null;
+    if (firebaseUser.name) {
+      const parts = firebaseUser.name.trim().split(/\s+/);
+      firstName = parts[0] || null;
+      if (parts.length > 1) {
+        lastName = parts.slice(1).join(' ') || null;
+      }
     }
 
     try {
@@ -59,35 +56,37 @@ export class AuthManager extends BaseManager {
         });
       }
 
-      // Clerk ID is the only automatic account-linking key.
-      let user = await User.findOne({ where: { clerkId } });
-      if (!user) {
-        const conflictingEmailUser = await User.findOne({ where: { emailAddress } });
-        if (conflictingEmailUser) {
-          throw new Error('An account with this email already exists. Contact support to link it securely.');
-        }
+      let user = await User.findOne({ where: { firebaseUid } });
+
+      // A verified email may safely link a pre-Firebase account during migration.
+      if (!user && firebaseUser.email_verified && emailAddress) {
+        user = await User.findOne({ where: { emailAddress, firebaseUid: null } });
       }
+
+      const mobileNo = firebaseUser.phone_number || null;
 
       if (user) {
         // Update user
         await user.update({
-          clerkId,
-          firstName,
-          lastName,
-          displayName: `${firstName || ''} ${lastName || ''}`.trim() || emailAddress.split('@')[0],
+          firebaseUid,
+          firstName: user.firstName || firstName,
+          lastName: user.lastName || lastName,
+          mobileNo: mobileNo || user.mobileNo,
+          displayName: user.displayName || `${firstName || ''} ${lastName || ''}`.trim() || emailAddress.split('@')[0],
           updated: new Date()
         });
-        this.log.info('Synced and updated Clerk user locally:', { emailAddress, clerkId });
+        this.log.info('Synced and updated Firebase user locally:', { emailAddress, firebaseUid });
       } else {
         // Create user
         user = await User.create({
           id: uuidv4(),
-          clerkId,
-          sub: clerkId,
+          firebaseUid,
+          sub: firebaseUid,
           emailAddress,
-          pwHash: Buffer.from('clerk-managed'),
+          pwHash: Buffer.from('firebase-managed'),
           firstName,
           lastName,
+          mobileNo,
           displayName: `${firstName || ''} ${lastName || ''}`.trim() || emailAddress.split('@')[0],
           centerId: defaultCenter.id,
           roleId: motherRole.id,
@@ -95,30 +94,30 @@ export class AuthManager extends BaseManager {
           inserted: new Date(),
           updated: new Date()
         });
-        this.log.info('Created new Clerk user locally:', { emailAddress, clerkId });
+        this.log.info('Created new Firebase user locally:', { emailAddress, firebaseUid });
       }
       return user;
     } catch (error) {
-      this.log.error('Failed to sync Clerk user:', error);
+      this.log.error('Failed to sync Firebase user:', error);
       throw error;
     }
   }
 
   /**
-   * Deletes local user matching clerkId when deleted from Clerk
-   * @param {string} clerkId - Clerk user ID
+   * Deletes local user matching firebaseUid when deleted from Firebase
+   * @param {string} firebaseUid - Firebase user ID
    */
-  async deleteClerkUser(clerkId) {
+  async deleteFirebaseUser(firebaseUid) {
     try {
-      const user = await this.models.User.findOne({ where: { clerkId } });
+      const user = await this.models.User.findOne({ where: { firebaseUid } });
       if (user) {
         await user.destroy();
-        this.log.info('Deleted Clerk user locally:', { clerkId });
+        this.log.info('Deleted Firebase user locally:', { firebaseUid });
         return true;
       }
       return false;
     } catch (error) {
-      this.log.error('Failed to delete Clerk user:', error);
+      this.log.error('Failed to delete Firebase user:', error);
       throw error;
     }
   }

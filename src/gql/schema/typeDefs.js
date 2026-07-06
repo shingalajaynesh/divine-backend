@@ -18,7 +18,7 @@ export const typeDefs = `#graphql
 
   type User {
     id: ID!
-    clerkId: String
+    firebaseUid: String
     emailAddress: String!
     displayName: String
     firstName: String
@@ -168,6 +168,88 @@ export const typeDefs = `#graphql
     total: Int!
   }
 
+  type ProgramActivity {
+    id: ID!
+    slug: String!
+    title: String!
+    instructions: String!
+    quotient: String!
+    activityType: String!
+    mediaUrl: String
+    estimatedMins: Int!
+    requiresSubmission: Boolean!
+    points: Int!
+  }
+
+  type ProgramLesson {
+    id: ID!
+    slug: String!
+    title: String!
+    summary: String
+    lessonType: String!
+    durationMins: Int
+    releaseDay: Int
+    activities: [ProgramActivity!]!
+  }
+
+  type ProgramModule {
+    id: ID!
+    title: String!
+    description: String
+    coverUrl: String
+    unlockDay: Int
+    lessons: [ProgramLesson!]!
+  }
+
+  type Program {
+    id: ID!
+    slug: String!
+    name: String!
+    summary: String
+    coverUrl: String
+    language: String!
+    journeyStage: String!
+    isPremium: Boolean!
+    modules: [ProgramModule!]!
+  }
+
+  type ActivityProgress {
+    id: ID!
+    activityId: ID!
+    status: String!
+    attempts: Int!
+    score: Float
+    durationSeconds: Int!
+    lastPositionSeconds: Int!
+    notes: String
+    evidenceUrl: String
+    startedAt: String
+    completedAt: String
+  }
+
+  type ProgramEnrollment {
+    id: ID!
+    status: String!
+    source: String!
+    enrolledAt: String!
+    startedAt: String
+    completedAt: String
+    accessStartsAt: String
+    accessEndsAt: String
+    program: Program!
+    activityProgress: [ActivityProgress!]!
+  }
+
+  input ActivityProgressInput {
+    status: String
+    attempts: Int
+    score: Float
+    durationSeconds: Int
+    lastPositionSeconds: Int
+    notes: String
+    evidenceUrl: String
+  }
+
   input SubmitInquiryInput {
     name: String!
     email: String
@@ -197,6 +279,8 @@ export const typeDefs = `#graphql
     getMyConsultations: [ConsultationBooking!]!
     getMyBillingHistory: [Payment!]!
     getInquiries(status: String, search: String, limit: Int, offset: Int): InquiryConnection!
+    programCatalog: [Program!]!
+    myProgramEnrollments: [ProgramEnrollment!]!
   }
 
   type Mutation {
@@ -244,5 +328,7 @@ export const typeDefs = `#graphql
     submitInquiry(input: SubmitInquiryInput!): Inquiry!
     updateInquiryStatus(id: ID!, status: String!): Inquiry!
     replyToInquiry(id: ID!, content: String!): Inquiry!
+    enrollInProgram(programId: ID!): ProgramEnrollment!
+    updateActivityProgress(activityId: ID!, input: ActivityProgressInput!): ActivityProgress!
   }
 `;

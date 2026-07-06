@@ -59,7 +59,7 @@ export class SessionManager extends BaseManager {
 
       // Create new database session record
       const session = await UserSession.create({
-        id: deviceInfo.id || undefined, // Set Clerk session ID if provided, otherwise default to generated UUID
+        id: deviceInfo.id || undefined, // Use the verified provider session ID when available.
         userId,
         ipAddress: deviceInfo.ipAddress || '',
         userAgent: deviceInfo.userAgent || '',
