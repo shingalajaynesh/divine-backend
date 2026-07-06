@@ -75,11 +75,32 @@ export const typeDefs = `#graphql
   type LiveClass {
     id: ID!
     title: String!
+    titleEn: String!
+    titleHi: String!
     instructor: String!
     startTime: String!
     durationMins: Int!
     videoCallUrl: String!
+    replayUrl: String
     isBooked: Boolean!
+    booked: Boolean!
+    attended: Boolean!
+    feedbackScore: Int
+    feedbackNotes: String
+  }
+
+  type LiveClassBooking {
+    userId: ID!
+    liveClassId: ID!
+    attended: Boolean!
+    feedbackScore: Int
+    feedbackNotes: String
+  }
+
+  input SubmitLiveClassFeedbackInput {
+    liveClassId: ID!
+    feedbackScore: Int!
+    feedbackNotes: String
   }
 
   type RegisteredDevice {
@@ -138,6 +159,14 @@ export const typeDefs = `#graphql
     scheduleSlot: String!
     videoCallUrl: String!
     status: String!
+    caseNotes: String
+    followUpTasks: String
+  }
+
+  input SubmitCaseNotesInput {
+    bookingId: ID!
+    caseNotes: String!
+    followUpTasks: [String!]
   }
 
   type InquiryResponse {
@@ -256,6 +285,7 @@ export const typeDefs = `#graphql
   type ContentItem {
     id: ID!, slug: String!, contentType: String!, status: String!, visibility: String!, publishAt: String, unpublishAt: String
     category: ContentCategory, coverAsset: MediaAsset, translations: [ContentTranslation!]!, translation: ContentTranslation
+    trimester1Safe: Boolean, trimester2Safe: Boolean, trimester3Safe: Boolean, contraindications: String
   }
   input ContentTranslationInput { language: String!, title: String!, summary: String, body: String }
   input CreateContentItemInput {
@@ -281,6 +311,61 @@ export const typeDefs = `#graphql
   type ReminderSchedule { id: ID!, reminderType: String!, label: String!, localTime: String!, daysOfWeek: [Int!]!, channel: String!, enabled: Boolean! }
   input NotificationPreferenceInput { pushEnabled: Boolean, emailEnabled: Boolean, whatsappEnabled: Boolean, marketingAllowed: Boolean, quietStart: String, quietEnd: String, timezone: String }
   input ReminderScheduleInput { id: ID, reminderType: String, label: String!, localTime: String!, daysOfWeek: [Int!]!, channel: String, enabled: Boolean }
+  
+  type DietPreference {
+    userId: ID!
+    dietType: String!
+    allergens: String
+    notes: String
+  }
+
+  type UserMealPlan {
+    id: ID!
+    userId: ID!
+    dayNumber: Int!
+    mealType: String!
+    contentItemId: ID
+    customMealName: String
+    completed: Boolean!
+  }
+
+  type ShoppingListItem {
+    id: ID!
+    userId: ID!
+    ingredientName: String!
+    quantity: String
+    purchased: Boolean!
+  }
+
+  input UpdateDietPreferenceInput {
+    dietType: String!
+    allergens: [String!]
+    notes: String
+  }
+
+  input AddShoppingItemInput {
+    ingredientName: String!
+    quantity: String
+  }
+
+  type AudioPlaylist {
+    id: ID!
+    userId: ID!
+    name: String!
+    description: String
+    items: [AudioPlaylistItem!]!
+    createdAt: String!
+    updatedAt: String!
+  }
+
+  type AudioPlaylistItem {
+    id: ID!
+    playlistId: ID!
+    contentItem: ContentItem!
+    sortOrder: Int!
+    createdAt: String!
+    updatedAt: String!
+  }
 
   type UserStreak {
     id: ID!
@@ -470,6 +555,13 @@ export const typeDefs = `#graphql
     getSensoryActivity(dayNumber: Int!): SensoryActivity
     getMySensoryActivityLog(dayNumber: Int!): SensoryActivityLog
     getContentViewHistory(contentItemId: ID, dailyContentId: ID): ContentViewHistory
+    getMyPlaylists: [AudioPlaylist!]!
+    getPlaylistDetails(id: ID!): AudioPlaylist!
+    getDietPreference: DietPreference!
+    getMyMealPlans(dayNumber: Int!): [UserMealPlan!]!
+    getShoppingList: [ShoppingListItem!]!
+    getLiveClassesDetailed: [LiveClass!]!
+    getPrescriptionSummary: [ConsultationBooking!]!
   }
 
   type Mutation {
@@ -535,5 +627,19 @@ export const typeDefs = `#graphql
     submitQuizAnswer(dayNumber: Int!, selectedOptionIndex: Int!): QuizAttempt!
     acknowledgePartnerActivity(dayNumber: Int!): PartnerActivityLog!
     toggleSensoryActivity(dayNumber: Int!): SensoryActivityLog!
+    createPlaylist(name: String!, description: String): AudioPlaylist!
+    deletePlaylist(id: ID!): Boolean!
+    addPlaylistItem(playlistId: ID!, contentItemId: ID!): AudioPlaylistItem!
+    removePlaylistItem(playlistId: ID!, contentItemId: ID!): Boolean!
+    reorderPlaylistItem(playlistId: ID!, contentItemId: ID!, newPosition: Int!): Boolean!
+    updateDietPreference(input: UpdateDietPreferenceInput!): DietPreference!
+    toggleMealPlan(mealPlanId: ID!, completed: Boolean!): UserMealPlan!
+    addShoppingListItem(input: AddShoppingItemInput!): ShoppingListItem!
+    toggleShoppingListItem(itemId: ID!, purchased: Boolean!): ShoppingListItem!
+    clearPurchasedShoppingList: Boolean!
+    bookLiveClassDetailed(liveClassId: ID!): LiveClassBooking!
+    submitLiveClassFeedback(input: SubmitLiveClassFeedbackInput!): LiveClassBooking!
+    updateLiveClassReplay(liveClassId: ID!, replayUrl: String!): LiveClass!
+    submitCaseNotes(input: SubmitCaseNotesInput!): ConsultationBooking!
   }
 `;

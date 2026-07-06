@@ -1,8 +1,17 @@
 import { authenticate, authorizeRoles } from '../permissions/index.js';
 import { v4 as uuidv4 } from 'uuid';
 import { Op } from 'sequelize';
+import { ConsultationService } from '../../../modules/consultation/consultation.service.js';
 
 export const bookingResolvers = {
+  ConsultationBooking: {
+    user: async (parent, args, context) => {
+      return parent.user || await context.models.User.findByPk(parent.userId);
+    },
+    expert: async (parent, args, context) => {
+      return parent.expert || await context.models.User.findByPk(parent.expertId);
+    }
+  },
   Query: {
     getExpertSchedules: authenticate(async (parent, args, context) => {
       const { models } = context;
@@ -47,6 +56,11 @@ export const bookingResolvers = {
         ],
         order: [['scheduleSlot', 'ASC']]
       });
+    }),
+
+    getPrescriptionSummary: authenticate(async (parent, args, context) => {
+      const service = new ConsultationService(context.models, context.sequelize);
+      return service.getPrescriptionSummary(context.viewer.id);
     })
   },
 
@@ -150,6 +164,11 @@ export const bookingResolvers = {
 
       log.info(`Dispatched bilingual daily WhatsApp reminders to ${count} mothers.`);
       return true;
-    }))
+    })),
+
+    submitCaseNotes: authenticate(async (parent, { input }, context) => {
+      const service = new ConsultationService(context.models, context.sequelize);
+      return service.submitCaseNotes(context.viewer.id, input);
+    })
   }
 };

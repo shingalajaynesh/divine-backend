@@ -11,6 +11,8 @@ import { programResolvers } from './resolvers/program.js';
 import { contentCmsResolvers } from './resolvers/contentCms.js';
 import { notificationResolvers } from './resolvers/notification.js';
 import { timelineResolvers } from './resolvers/timeline.js';
+import { playlistResolvers } from './resolvers/playlist.js';
+import { dietResolvers } from './resolvers/diet.js';
 
 export const resolvers = {
   User: {
@@ -60,6 +62,8 @@ export const resolvers = {
     ...contentCmsResolvers.Query,
     ...notificationResolvers.Query,
     ...timelineResolvers.Query,
+    ...playlistResolvers.Query,
+    ...dietResolvers.Query,
   },
   Mutation: {
     ...userResolvers.Mutation,
@@ -75,5 +79,7 @@ export const resolvers = {
     ...contentCmsResolvers.Mutation,
     ...notificationResolvers.Mutation,
     ...timelineResolvers.Mutation,
+    ...playlistResolvers.Mutation,
+    ...dietResolvers.Mutation,
   }
 };
