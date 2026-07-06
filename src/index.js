@@ -46,13 +46,13 @@ const startServer = async () => {
     // 2. Create Express app
     const app = express();
     app.set('trust proxy', 1);
+    app.use(cors(corsOptions));
     app.use(
       clerkMiddleware({
         authorizedParties: allowedOrigins,
       }),
     );
     app.use(helmet({ crossOriginResourcePolicy: { policy: 'cross-origin' } }));
-    app.use(cors(corsOptions));
     app.use(
       rateLimit({
         windowMs: 15 * 60 * 1000,
