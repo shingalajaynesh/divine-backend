@@ -9,6 +9,31 @@ import { GraphQLError } from 'graphql';
 import { ZodError } from 'zod';
 import { calculatePregnancyStats } from '../../../util/pregnancy.js';
 
+let mockWorksheetSubmissions = [
+  {
+    id: 'work-1',
+    userId: 'user-mother-1',
+    userDisplayName: 'Ananya Sharma',
+    title: 'Trimester 1 Emotional Reflection Worksheet',
+    submittedAt: '2026-07-06T14:30:00Z',
+    fileUrl: 'https://www.w3.org/WAI/ER/tests/xhtml/testfiles/resources/pdf/dummy.pdf',
+    score: null,
+    feedback: null,
+    status: 'pending'
+  },
+  {
+    id: 'work-2',
+    userId: 'user-mother-2',
+    userDisplayName: 'Jayne Patel',
+    title: 'Garbh Sanskar Diet and Nutrition Log Sheet',
+    submittedAt: '2026-07-05T09:15:00Z',
+    fileUrl: 'https://www.w3.org/WAI/ER/tests/xhtml/testfiles/resources/pdf/dummy.pdf',
+    score: 85,
+    feedback: 'Excellent nutritional balance. Maintain hydration levels as suggested!',
+    status: 'reviewed'
+  }
+];
+
 const getService = (context) => new DailyProgressService(context.models, context.sequelize);
 
 const runValidated = async (operation) => {
@@ -46,9 +71,12 @@ export const timelineResolvers = {
     unlockedAt: (parent) => parent.unlockedAt.toISOString(),
   },
   Query: {
-    myDailyProgress: authenticate(async (parent, { dayNumber }, context) =>
-      runValidated(() => getService(context).getProgress(context.viewer.id, dayNumber))
-    ),
+    myDailyProgress: authenticate(async (parent, { dayNumber, userId }, context) => {
+      const targetUserId = (userId && ['STAFF', 'GUIDE', 'ADMIN'].includes(context.viewer.role?.roleType))
+        ? userId
+        : context.viewer.id;
+      return runValidated(() => getService(context).getProgress(targetUserId, dayNumber));
+    }),
     myDailyProgressRange: authenticate(async (parent, { startDay, endDay }, context) =>
       runValidated(() => getService(context).getProgressRange(context.viewer.id, startDay, endDay))
     ),
@@ -61,6 +89,80 @@ export const timelineResolvers = {
         dayNumber
       ));
     }),
+    myJourneyArchive: authenticate(async (parent, args, context) => {
+      const userId = context.viewer.id;
+      const stats = calculatePregnancyStats(context.viewer.lmpDate, context.viewer.dueDate);
+      
+      const progressLogs = await context.models.DailyProgress.findAll({
+        where: { userId }
+      });
+      
+      const vitalsLogs = await context.models.VitalsLog.findAll({
+        where: { userId }
+      });
+
+      const getTrimester = (dayNumber) => {
+        if (dayNumber <= 84) return 1;
+        if (dayNumber <= 168) return 2;
+        return 3;
+      };
+
+      const summaries = [1, 2, 3].map(tNum => {
+        const tProgress = progressLogs.filter(p => getTrimester(p.dayNumber) === tNum);
+        let completedActivities = 0;
+        for (const p of tProgress) {
+          if (p.pqCompleted) completedActivities++;
+          if (p.iqCompleted) completedActivities++;
+          if (p.eqCompleted) completedActivities++;
+          if (p.sqCompleted) completedActivities++;
+        }
+
+        const tVitals = vitalsLogs.filter(v => {
+          if (!v.loggedAt || !context.viewer.lmpDate) return false;
+          const diffMs = new Date(v.loggedAt).getTime() - new Date(context.viewer.lmpDate).getTime();
+          const day = Math.floor(diffMs / (24 * 60 * 60 * 1000)) + 1;
+          return getTrimester(day) === tNum;
+        });
+
+        const loggedVitalsCount = tVitals.length;
+        
+        const sleepVals = tVitals.filter(v => v.sleepHours != null).map(v => v.sleepHours);
+        const hydrationVals = tVitals.filter(v => v.hydrationWater != null).map(v => v.hydrationWater);
+
+        const averageSleepHours = sleepVals.length > 0 
+          ? Number((sleepVals.reduce((a, b) => a + b, 0) / sleepVals.length).toFixed(1)) 
+          : null;
+        const averageHydrationWater = hydrationVals.length > 0 
+          ? Number((hydrationVals.reduce((a, b) => a + b, 0) / hydrationVals.length).toFixed(0)) 
+          : null;
+
+        const moodCounts = {};
+        for (const v of tVitals) {
+          if (v.mood) {
+            moodCounts[v.mood] = (moodCounts[v.mood] || 0) + 1;
+          }
+        }
+        const moodFrequencyDistribution = Object.entries(moodCounts).map(([mood, count]) => ({
+          mood,
+          count
+        }));
+
+        return {
+          trimesterNumber: tNum,
+          totalActivitiesCompleted: completedActivities,
+          vitalsLoggedCount: loggedVitalsCount,
+          averageSleepHours,
+          averageHydrationWater,
+          moodFrequencyDistribution
+        };
+      });
+
+      return {
+        pregnancyDay: stats.pregnancyDay || 1,
+        weekNumber: stats.currentWeek || 1,
+        trimesterSummary: summaries
+      };
+    }),
     myStreak: authenticate(async (parent, args, context) =>
       new StreakService(context.models, context.sequelize).getStreak(context.viewer.id)
     ),
@@ -70,12 +172,21 @@ export const timelineResolvers = {
     myWeeklyReport: authenticate(async (parent, { weekNumber }, context) =>
       new StreakService(context.models, context.sequelize).getWeeklyReport(context.viewer.id, weekNumber)
     ),
+    myMonthlyReport: authenticate(async (parent, { monthNumber }, context) =>
+      new StreakService(context.models, context.sequelize).getMonthlyReport(context.viewer.id, monthNumber)
+    ),
     getDailyQuiz: authenticate(async (parent, { dayNumber }, context) =>
       new QuizService(context.models, context.sequelize).getDailyQuiz(dayNumber, context.viewer.language || 'en')
     ),
     getMyQuizAttempt: authenticate(async (parent, { dayNumber }, context) =>
       new QuizService(context.models, context.sequelize).getMyQuizAttempt(context.viewer.id, dayNumber)
     ),
+    getWorksheetSubmissions: authenticate((parent, args, context) => {
+      if (context.viewer.role?.roleType !== 'STAFF' && context.viewer.role?.roleType !== 'ADMIN') {
+        throw new Error('Unauthorized access');
+      }
+      return mockWorksheetSubmissions;
+    }),
     getPartnerActivity: authenticate(async (parent, { dayNumber }, context) =>
       new PartnerService(context.models, context.sequelize).getPartnerActivity(dayNumber, context.viewer.language || 'en')
     ),
@@ -83,6 +194,11 @@ export const timelineResolvers = {
       const targetUserId = context.viewer.role?.roleType === 'PARTNER' ? context.viewer.partnerId : context.viewer.id;
       if (!targetUserId) return null;
       return new PartnerService(context.models, context.sequelize).getMyPartnerActivityLog(targetUserId, dayNumber);
+    }),
+    myPartnerStreak: authenticate(async (parent, args, context) => {
+      const targetUserId = context.viewer.role?.roleType === 'PARTNER' ? context.viewer.id : context.viewer.partnerId;
+      if (!targetUserId) return { currentStreak: 0, longestStreak: 0, lastCompletedDate: null };
+      return new PartnerService(context.models, context.sequelize).getPartnerStreak(targetUserId);
     }),
     getPartnerDashboard: authenticate(async (parent, args, context) => {
       const viewer = context.viewer;
@@ -185,6 +301,17 @@ export const timelineResolvers = {
         selectedOptionIndex,
         userPregnancyDay
       ));
+    }),
+    gradeWorksheetSubmission: authenticate((parent, { id, score, feedback }, context) => {
+      if (context.viewer.role?.roleType !== 'STAFF' && context.viewer.role?.roleType !== 'ADMIN') {
+        throw new Error('Unauthorized access');
+      }
+      const submission = mockWorksheetSubmissions.find(s => s.id === id);
+      if (!submission) throw new Error('Worksheet submission not found');
+      submission.score = score;
+      submission.feedback = feedback;
+      submission.status = 'reviewed';
+      return submission;
     }),
     acknowledgePartnerActivity: authenticate(async (parent, { dayNumber }, context) => {
       let targetUserId = context.viewer.id;
@@ -327,6 +454,43 @@ export const timelineResolvers = {
         context.viewer.id,
         dayNumber,
         userPregnancyDay
+      ));
+    }),
+    submitCoachingFeedback: authenticate(async (parent, { progressId, quotient, feedback }, context) => {
+      const viewerRole = context.viewer.role?.roleType;
+      return runValidated(() => getService(context).submitFeedback(
+        progressId,
+        quotient,
+        feedback,
+        viewerRole
+      ));
+    }),
+    assignPartnerTask: authenticate(async (parent, { dayNumber, title, description }, context) => {
+      const targetUserId = context.viewer.role?.roleType === 'PARTNER' ? context.viewer.partnerId : context.viewer.id;
+      if (!targetUserId) {
+        throw new GraphQLError('No partner linked to this account.', {
+          extensions: { code: 'BAD_USER_INPUT' }
+        });
+      }
+      return runValidated(() => new PartnerService(context.models, context.sequelize).assignTask(
+        targetUserId,
+        dayNumber,
+        title,
+        description
+      ));
+    }),
+    submitPartnerResponse: authenticate(async (parent, { dayNumber, response, familyNotes }, context) => {
+      const targetUserId = context.viewer.role?.roleType === 'PARTNER' ? context.viewer.id : context.viewer.partnerId;
+      if (!targetUserId) {
+        throw new GraphQLError('No partner linked to this account.', {
+          extensions: { code: 'BAD_USER_INPUT' }
+        });
+      }
+      return runValidated(() => new PartnerService(context.models, context.sequelize).submitResponse(
+        targetUserId,
+        dayNumber,
+        response,
+        familyNotes
       ));
     }),
   },

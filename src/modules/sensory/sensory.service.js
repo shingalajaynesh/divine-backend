@@ -22,7 +22,9 @@ export class SensoryService {
       dayNumber: activity.dayNumber,
       senseType: activity.senseType,
       title: isHi ? activity.titleHi : activity.titleEn,
-      description: isHi ? activity.descriptionHi : activity.descriptionEn
+      description: isHi ? activity.descriptionHi : activity.descriptionEn,
+      guidance: isHi ? activity.guidanceHi : activity.guidanceEn,
+      mediaLinks: activity.mediaLinks
     };
   }
 

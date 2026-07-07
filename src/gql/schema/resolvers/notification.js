@@ -12,5 +12,10 @@ export const notificationResolvers = {
     updateNotificationPreferences: authenticate((parent, args, context) => context.notificationManager.updatePreferences(args.input)),
     saveReminderSchedule: authenticate((parent, args, context) => context.notificationManager.saveReminder(args.input)),
     deleteReminderSchedule: authenticate((parent, args, context) => context.notificationManager.deleteReminder(args.id)),
+    dispatchDailyReminders: authenticate(async (parent, args, context) => {
+      const { ReminderOrchestrator } = await import('../../../services/reminderOrchestrator.js');
+      const orchestrator = new ReminderOrchestrator(context.models);
+      return orchestrator.orchestrateDailyReminders(context.viewer.centerId);
+    }),
   },
 };

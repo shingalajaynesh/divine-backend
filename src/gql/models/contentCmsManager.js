@@ -216,4 +216,70 @@ export class ContentCmsManager extends BaseManager {
       metadata: { source: 'external_url' },
     });
   }
+
+  async update(id, input) {
+    const item = await this.models.ContentItem.findOne({ where: { id, centerId: this.viewer.centerId || null } });
+    if (!item) throw new GraphQLError('Content item not found.', { extensions: { code: 'NOT_FOUND' } });
+
+    if (input.slug && !slugPattern.test(input.slug)) throw new GraphQLError('Slug must contain lowercase letters, numbers, and hyphens.', { extensions: { code: 'BAD_USER_INPUT' } });
+    if (input.contentType && !contentTypes.has(input.contentType)) throw new GraphQLError('Unsupported content type.', { extensions: { code: 'BAD_USER_INPUT' } });
+    if (input.visibility && !visibilities.has(input.visibility)) throw new GraphQLError('Unsupported visibility.', { extensions: { code: 'BAD_USER_INPUT' } });
+
+    return this.models.ContentItem.sequelize.transaction(async (transaction) => {
+      await item.update({
+        slug: input.slug ?? item.slug,
+        contentType: input.contentType ?? item.contentType,
+        visibility: input.visibility ?? item.visibility,
+        categoryId: input.categoryId !== undefined ? input.categoryId : item.categoryId,
+        coverAssetId: input.coverAssetId !== undefined ? input.coverAssetId : item.coverAssetId,
+        publishAt: input.publishAt !== undefined ? input.publishAt : item.publishAt,
+        unpublishAt: input.unpublishAt !== undefined ? input.unpublishAt : item.unpublishAt,
+        trimester1Safe: input.trimester1Safe !== undefined ? input.trimester1Safe : item.trimester1Safe,
+        trimester2Safe: input.trimester2Safe !== undefined ? input.trimester2Safe : item.trimester2Safe,
+        trimester3Safe: input.trimester3Safe !== undefined ? input.trimester3Safe : item.trimester3Safe,
+        contraindications: input.contraindications !== undefined ? input.contraindications : item.contraindications,
+        medicalReviewed: input.medicalReviewed !== undefined ? input.medicalReviewed : item.medicalReviewed,
+        status: input.status ?? item.status,
+        updatedBy: this.viewer.id,
+      }, { transaction });
+
+      if (input.translations && input.translations.length > 0) {
+        for (const translation of input.translations) {
+          if (!translation.language || !translation.title?.trim()) {
+            throw new GraphQLError('Translations require language and title values.', { extensions: { code: 'BAD_USER_INPUT' } });
+          }
+          
+          const existingTranslation = await this.models.ContentTranslation.findOne({
+            where: { contentItemId: item.id, language: translation.language },
+            transaction
+          });
+
+          if (existingTranslation) {
+            await existingTranslation.update({
+              title: translation.title.trim(),
+              summary: translation.summary !== undefined ? translation.summary : existingTranslation.summary,
+              body: translation.body !== undefined ? translation.body : existingTranslation.body,
+            }, { transaction });
+          } else {
+            await this.models.ContentTranslation.create({
+              contentItemId: item.id,
+              language: translation.language,
+              title: translation.title.trim(),
+              summary: translation.summary || null,
+              body: translation.body || null,
+            }, { transaction });
+          }
+        }
+      }
+
+      return item.reload({ include: this.includes(), transaction });
+    });
+  }
+
+  async deleteContentItem(id) {
+    const item = await this.models.ContentItem.findOne({ where: { id, centerId: this.viewer.centerId || null } });
+    if (!item) throw new GraphQLError('Content item not found.', { extensions: { code: 'NOT_FOUND' } });
+    await item.destroy();
+    return true;
+  }
 }

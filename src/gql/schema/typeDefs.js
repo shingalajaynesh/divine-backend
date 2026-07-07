@@ -38,6 +38,7 @@ export const typeDefs = `#graphql
     partner: User
     shareVitalsWithPartner: Boolean!
     shareReportsWithPartner: Boolean!
+    postpartumPlan: String
   }
 
   type PartnerDashboardData {
@@ -171,7 +172,23 @@ export const typeDefs = `#graphql
     kickCount: Int
     bloodSugar: Float
     symptoms: String
+    mood: String
+    sleepHours: Float
+    hydrationWater: Float
+    nutritionCalories: Float
+    nutritionMealNotes: String
     loggedAt: String!
+  }
+
+  type Recommendation {
+    id: ID!
+    title: String!
+    description: String!
+    category: String!
+    icon: String!
+    actionLink: String!
+    isPremium: Boolean!
+    unlocked: Boolean!
   }
 
   type HospitalBagItem {
@@ -204,6 +221,11 @@ export const typeDefs = `#graphql
     kickCount: Int
     bloodSugar: Float
     symptoms: [String!]
+    mood: String
+    sleepHours: Float
+    hydrationWater: Float
+    nutritionCalories: Float
+    nutritionMealNotes: String
   }
 
   input AddAppointmentInput {
@@ -562,6 +584,12 @@ export const typeDefs = `#graphql
 
   type ContentCategory { id: ID!, slug: String!, name: String!, description: String, icon: String }
   type MediaAsset { id: ID!, url: String, mimeType: String!, kind: String!, status: String!, altText: String }
+  type CloudinarySignature {
+    signature: String!
+    timestamp: Int!
+    apiKey: String!
+    cloudName: String!
+  }
   type ContentTranslation { id: ID!, language: String!, title: String!, summary: String, body: String }
   type ContentItem {
     id: ID!, slug: String!, contentType: String!, status: String!, visibility: String!, publishAt: String, unpublishAt: String
@@ -573,6 +601,22 @@ export const typeDefs = `#graphql
   input CreateContentItemInput {
     slug: String!, contentType: String!, visibility: String, categoryId: ID, coverAssetId: ID,
     publishAt: String, unpublishAt: String, translations: [ContentTranslationInput!]!
+  }
+  input UpdateContentItemInput {
+    slug: String
+    contentType: String
+    visibility: String
+    categoryId: ID
+    coverAssetId: ID
+    publishAt: String
+    unpublishAt: String
+    trimester1Safe: Boolean
+    trimester2Safe: Boolean
+    trimester3Safe: Boolean
+    contraindications: String
+    medicalReviewed: Boolean
+    status: String
+    translations: [ContentTranslationInput!]
   }
   input RegisterMediaAssetInput { url: String!, mimeType: String!, kind: String!, sizeBytes: Int, durationSeconds: Int, altText: String }
   type RecentSearch { id: ID!, query: String!, resultCount: Int!, searchedAt: String! }
@@ -594,6 +638,12 @@ export const typeDefs = `#graphql
   input NotificationPreferenceInput { pushEnabled: Boolean, emailEnabled: Boolean, whatsappEnabled: Boolean, marketingAllowed: Boolean, quietStart: String, quietEnd: String, timezone: String }
   input ReminderScheduleInput { id: ID, reminderType: String, label: String!, localTime: String!, daysOfWeek: [Int!]!, channel: String, enabled: Boolean }
   
+  type ReminderDispatchReport {
+    success: Boolean!
+    remindersSent: Int!
+    details: [String!]!
+  }
+
   type DietPreference {
     userId: ID!
     dietType: String!
@@ -682,6 +732,13 @@ export const typeDefs = `#graphql
     days: [WeeklyReportDay!]!
   }
 
+  type MonthlyReport {
+    monthNumber: Int!
+    completedDaysCount: Int!
+    totalMonthDurationMins: Int!
+    weeks: [WeeklyReport!]!
+  }
+
   type QuizQuestion {
     id: ID!
     dayNumber: Int!
@@ -700,6 +757,18 @@ export const typeDefs = `#graphql
     attemptedAt: String!
   }
 
+  type WorksheetSubmission {
+    id: ID!
+    userId: ID!
+    userDisplayName: String!
+    title: String!
+    submittedAt: String!
+    fileUrl: String!
+    score: Int
+    feedback: String
+    status: String!
+  }
+
   type PartnerActivity {
     id: ID!
     dayNumber: Int!
@@ -712,6 +781,10 @@ export const typeDefs = `#graphql
     userId: ID!
     dayNumber: Int!
     partnerAcknowledged: Boolean!
+    assignedTaskTitle: String
+    assignedTaskDesc: String
+    partnerResponse: String
+    familyNotes: String
     completedAt: String
   }
 
@@ -721,6 +794,8 @@ export const typeDefs = `#graphql
     senseType: String!
     title: String!
     description: String!
+    guidance: String
+    mediaLinks: String
   }
 
   type SensoryActivityLog {
@@ -751,10 +826,34 @@ export const typeDefs = `#graphql
     iqNotes: String
     eqNotes: String
     sqNotes: String
+    pqFeedback: String
+    iqFeedback: String
+    eqFeedback: String
+    sqFeedback: String
     notes: String
     completedAt: String
     createdAt: String!
     updatedAt: String!
+  }
+
+  type MoodFrequency {
+    mood: String!
+    count: Int!
+  }
+
+  type TrimesterArchiveSummary {
+    trimesterNumber: Int!
+    totalActivitiesCompleted: Int!
+    vitalsLoggedCount: Int!
+    averageSleepHours: Float
+    averageHydrationWater: Float
+    moodFrequencyDistribution: [MoodFrequency!]!
+  }
+
+  type JourneyArchive {
+    pregnancyDay: Int!
+    weekNumber: Int!
+    trimesterSummary: [TrimesterArchiveSummary!]!
   }
 
   type TimelineDayStatus {
@@ -819,8 +918,48 @@ export const typeDefs = `#graphql
     completedTasksCount: Int!
   }
 
+  type FranchiseMetrics {
+    centersCount: Int!
+    totalMothersCount: Int!
+    averageStaffResponsePercent: Float!
+    slaAlertsCount: Int!
+    centerRankings: [CenterRankingPoint!]!
+    centerGrowthStats: [CenterGrowthPoint!]!
+  }
+
+  type CenterRankingPoint {
+    centerId: ID!
+    centerName: String!
+    mothersCount: Int!
+    activeSubscriptionsCount: Int!
+    staffResponsePercent: Float!
+    rank: Int!
+  }
+
+  type CenterGrowthPoint {
+    centerName: String!
+    months: [MonthGrowthPoint!]!
+  }
+
+  type MonthGrowthPoint {
+    monthLabel: String!
+    count: Int!
+  }
+
+  type SuperAdminMetrics {
+    totalUsersCount: Int!
+    totalCentersCount: Int!
+    systemStatus: String!
+    activeAlertsCount: Int!
+    recentAuditLogs: [AdminAuditLog!]!
+    approvalsQueueCount: Int!
+  }
+
   type Query {
+    getCenters: [Center!]!
     getCenterKpis: CenterKpis!
+    getFranchiseMetrics: FranchiseMetrics!
+    getSuperAdminMetrics: SuperAdminMetrics!
     me: User
     getUser(id: ID!): User
     getUsers(isActive: Boolean): [User!]!
@@ -833,6 +972,8 @@ export const typeDefs = `#graphql
     getMyDevices: [RegisteredDevice!]!
     getParameterConfig(key: String!): String
     getMyVitals: [VitalsLog!]!
+    myRecommendations: [Recommendation!]!
+    getCloudinarySignature(folder: String!): CloudinarySignature!
     getExpertSchedules: [ExpertSchedule!]!
     getExpertBookings(expertId: ID!): [ConsultationBooking!]!
     getMyConsultations: [ConsultationBooking!]!
@@ -849,13 +990,17 @@ export const typeDefs = `#graphql
     myNotificationPreferences: NotificationPreference!
     myReminderSchedules: [ReminderSchedule!]!
     myTimelineOverview(dayNumber: Int): TimelineOverview!
-    myDailyProgress(dayNumber: Int!): DailyProgress
+    myDailyProgress(dayNumber: Int!, userId: ID): DailyProgress
     myDailyProgressRange(startDay: Int!, endDay: Int!): [DailyProgress!]!
     myStreak: UserStreak
+    myPartnerStreak: UserStreak
     myAchievements: [UserAchievement!]!
     myWeeklyReport(weekNumber: Int!): WeeklyReport!
+    myMonthlyReport(monthNumber: Int!): MonthlyReport!
+    myJourneyArchive: JourneyArchive!
     getDailyQuiz(dayNumber: Int!): QuizQuestion
     getMyQuizAttempt(dayNumber: Int!): QuizAttempt
+    getWorksheetSubmissions: [WorksheetSubmission!]!
     getPartnerActivity(dayNumber: Int!): PartnerActivity
     getMyPartnerActivityLog(dayNumber: Int!): PartnerActivityLog
     getSensoryActivity(dayNumber: Int!): SensoryActivity
@@ -934,6 +1079,8 @@ export const typeDefs = `#graphql
     bookConsultation(expertId: ID!, scheduleSlot: String!): ConsultationBooking!
     cancelConsultation(bookingId: ID!): Boolean!
     dispatchDailyWhatsAppReminders: Boolean!
+    dispatchDailyReminders: ReminderDispatchReport!
+    savePostpartumPlan(planJson: String!): User!
     submitInquiry(input: SubmitInquiryInput!): Inquiry!
     updateInquiryStatus(id: ID!, status: String!): Inquiry!
     replyToInquiry(id: ID!, content: String!): Inquiry!
@@ -942,6 +1089,8 @@ export const typeDefs = `#graphql
     createContentItem(input: CreateContentItemInput!): ContentItem!
     publishContentItem(id: ID!): ContentItem!
     reviewContentItem(id: ID!, reviewed: Boolean!): ContentItem!
+    updateContentItem(id: ID!, input: UpdateContentItemInput!): ContentItem!
+    deleteContentItem(id: ID!): Boolean!
     registerMediaAsset(input: RegisterMediaAssetInput!): MediaAsset!
     setContentBookmark(input: ContentBookmarkInput!): BookmarkState!
     clearRecentContentSearches: Boolean!
@@ -954,6 +1103,7 @@ export const typeDefs = `#graphql
     toggleDailyActivity(dayNumber: Int!, quotient: String!): DailyProgress!
     saveDailyActivityDetails(input: DailyActivityDetailsInput!): DailyProgress!
     submitQuizAnswer(dayNumber: Int!, selectedOptionIndex: Int!): QuizAttempt!
+    gradeWorksheetSubmission(id: ID!, score: Int!, feedback: String!): WorksheetSubmission!
     acknowledgePartnerActivity(dayNumber: Int!): PartnerActivityLog!
     toggleSensoryActivity(dayNumber: Int!): SensoryActivityLog!
     linkPartner(partnerEmail: String!): User!
@@ -1010,5 +1160,10 @@ export const typeDefs = `#graphql
     createExpertSchedule(dayOfWeek: Int!, startTime: String!, endTime: String!, slotDurationMins: Int!): ExpertSchedule!
     deleteExpertSchedule(id: ID!): Boolean!
     updateConsultationStatus(bookingId: ID!, status: String!): ConsultationBooking!
+    updateRolePermissions(roleId: ID!, permissions: String!): Role!
+    approveCenter(centerId: ID!, approved: Boolean!): Center!
+    submitCoachingFeedback(progressId: ID!, quotient: String!, feedback: String!): DailyProgress!
+    assignPartnerTask(dayNumber: Int!, title: String!, description: String): PartnerActivityLog!
+    submitPartnerResponse(dayNumber: Int!, response: String!, familyNotes: String): PartnerActivityLog!
   }
 `;

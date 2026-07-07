@@ -6,7 +6,12 @@ export const logVitalsSchema = z.object({
   diastolicBp: z.number().int().optional(),
   kickCount: z.number().int().optional(),
   bloodSugar: z.number().optional(),
-  symptoms: z.array(z.string()).optional()
+  symptoms: z.array(z.string()).optional(),
+  mood: z.string().optional(),
+  sleepHours: z.number().optional(),
+  hydrationWater: z.number().optional(),
+  nutritionCalories: z.number().optional(),
+  nutritionMealNotes: z.string().optional()
 });
 
 export const addAppointmentSchema = z.object({
@@ -45,6 +50,11 @@ export class WellnessService {
       kickCount: data.kickCount || null,
       bloodSugar: data.bloodSugar || null,
       symptoms: JSON.stringify(data.symptoms || []),
+      mood: data.mood || null,
+      sleepHours: data.sleepHours || null,
+      hydrationWater: data.hydrationWater || null,
+      nutritionCalories: data.nutritionCalories || null,
+      nutritionMealNotes: data.nutritionMealNotes || null,
       loggedAt: new Date()
     });
   }

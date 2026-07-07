@@ -155,4 +155,25 @@ export class StreakService {
       days
     };
   }
+
+  async getMonthlyReport(userId, monthNumber) {
+    const startWeek = (monthNumber - 1) * 4 + 1;
+    const endWeek = monthNumber * 4;
+
+    const weeks = [];
+    for (let w = startWeek; w <= endWeek; w++) {
+      const wReport = await this.getWeeklyReport(userId, w);
+      weeks.push(wReport);
+    }
+
+    const completedDaysCount = weeks.reduce((sum, w) => sum + w.completedDaysCount, 0);
+    const totalMonthDurationMins = weeks.reduce((sum, w) => sum + w.totalWeekDurationMins, 0);
+
+    return {
+      monthNumber,
+      completedDaysCount,
+      totalMonthDurationMins,
+      weeks
+    };
+  }
 }

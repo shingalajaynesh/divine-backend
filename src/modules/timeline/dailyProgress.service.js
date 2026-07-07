@@ -153,6 +153,36 @@ export class DailyProgressService {
     });
   }
 
+  async submitFeedback(progressId, quotient, feedback, viewerRole) {
+    if (viewerRole !== 'STAFF' && viewerRole !== 'GUIDE' && viewerRole !== 'ADMIN') {
+      throw new Error('Unauthorized');
+    }
+
+    const qLower = quotient.toLowerCase();
+    if (!['pq', 'iq', 'eq', 'sq'].includes(qLower)) {
+      throw new Error('Invalid quotient specified');
+    }
+
+    const feedbackField = `${qLower}Feedback`;
+
+    return this.sequelize.transaction(async (transaction) => {
+      const progress = await this.models.DailyProgress.findByPk(progressId, {
+        transaction,
+        lock: transaction.LOCK.UPDATE
+      });
+
+      if (!progress) {
+        throw new Error('Daily progress record not found');
+      }
+
+      await progress.update({
+        [feedbackField]: feedback || null
+      }, { transaction });
+
+      return progress;
+    });
+  }
+
   async getTimelineOverview(userId, stats, selectedDayInput) {
     const overview = this.buildTimelineOverview(userId, stats, selectedDayInput);
     const range = await this.getProgressRange(userId, overview.weekStartDay, overview.weekEndDay);

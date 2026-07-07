@@ -9,6 +9,11 @@ export const contentCmsResolvers = {
   Query: {
     contentFeed: authenticate((parent, args, context) => context.contentCmsManager.getFeed(args)),
     manageContent: staff((parent, args, context) => context.contentCmsManager.manage(args)),
+    getCloudinarySignature: staff(async (parent, { folder }, context) => {
+      const { CloudinaryService } = await import('../../../services/cloudinaryService.js');
+      const service = new CloudinaryService();
+      return service.generateUploadSignature({ folder });
+    }),
     searchContent: authenticate((parent, args, context) => context.contentCmsManager.search(args)),
     recentContentSearches: authenticate((parent, args, context) => context.contentCmsManager.recentSearches()),
     savedContent: authenticate((parent, args, context) => context.contentCmsManager.savedContent(args)),
@@ -18,6 +23,8 @@ export const contentCmsResolvers = {
     createContentItem: staff((parent, args, context) => context.contentCmsManager.create(args.input)),
     publishContentItem: authenticate(authorizeRoles(['ADMIN'], (parent, args, context) => context.contentCmsManager.publish(args.id))),
     reviewContentItem: staff((parent, args, context) => context.contentCmsManager.review(args.id, args.reviewed)),
+    updateContentItem: staff((parent, args, context) => context.contentCmsManager.update(args.id, args.input)),
+    deleteContentItem: staff((parent, args, context) => context.contentCmsManager.deleteContentItem(args.id)),
     registerMediaAsset: staff((parent, args, context) => context.contentCmsManager.registerMedia(args.input)),
     setContentBookmark: authenticate((parent, args, context) => context.contentCmsManager.setBookmark(args.input)),
     clearRecentContentSearches: authenticate((parent, args, context) => context.contentCmsManager.clearRecentSearches()),

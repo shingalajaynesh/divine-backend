@@ -11,7 +11,12 @@ const canViewPrivateUserFields = (parent, viewer) => {
   if (!viewer) return false;
   if (viewer.id === parent.id) return true;
   if (viewer.partnerId === parent.id || parent.partnerId === viewer.id) return true;
-  return viewer.role?.roleType === 'ADMIN' || viewer.role?.roleType === 'STAFF';
+  const { role } = viewer;
+  if (role?.roleType === 'ADMIN' || role?.roleType === 'STAFF') return true;
+  if (role?.permissions && role.permissions['user_private'] && role.permissions['user_private']['read']) {
+    return true;
+  }
+  return false;
 };
 
 export const userResolvers = {
@@ -62,6 +67,7 @@ export const userResolvers = {
     },
     shareVitalsWithPartner: (parent) => parent.shareVitalsWithPartner ?? true,
     shareReportsWithPartner: (parent) => parent.shareReportsWithPartner ?? true,
+    postpartumPlan: (parent) => parent.postpartumPlan ? JSON.stringify(parent.postpartumPlan) : null,
   },
 
   Payment: {
@@ -139,5 +145,16 @@ export const userResolvers = {
         extensions: { code: 'PAYMENTS_NOT_CONFIGURED' },
       });
     })),
+
+    savePostpartumPlan: authenticate(async (parent, { planJson }, context) => {
+      const user = context.viewer;
+      try {
+        user.postpartumPlan = JSON.parse(planJson);
+        await user.save();
+        return user;
+      } catch (err) {
+        throw new Error('Invalid JSON format for postpartum plan');
+      }
+    }),
   }
 };

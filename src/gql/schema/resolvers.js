@@ -20,6 +20,9 @@ import { subscriptionResolvers } from './resolvers/subscription.js';
 import { crmResolvers } from './resolvers/crm.js';
 import { staffTaskResolvers } from './resolvers/staffTask.js';
 import { adminResolvers } from './resolvers/admin.js';
+import { franchiseResolvers } from './resolvers/franchise.js';
+import { superAdminResolvers } from './resolvers/superAdmin.js';
+import { recommendationResolvers } from './resolvers/recommendation.js';
 
 export const resolvers = {
   User: {
@@ -117,6 +120,9 @@ export const resolvers = {
     ...crmResolvers.Query,
     ...staffTaskResolvers.Query,
     ...adminResolvers.Query,
+    ...franchiseResolvers.Query,
+    ...superAdminResolvers.Query,
+    ...recommendationResolvers.Query,
   },
   Mutation: {
     ...userResolvers.Mutation,
@@ -140,5 +146,6 @@ export const resolvers = {
     ...subscriptionResolvers.Mutation,
     ...crmResolvers.Mutation,
     ...staffTaskResolvers.Mutation,
+    ...superAdminResolvers.Mutation,
   }
 };

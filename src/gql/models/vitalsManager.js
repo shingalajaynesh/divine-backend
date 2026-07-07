@@ -15,6 +15,11 @@ export class VitalsManager extends BaseManager {
         diastolicBp: input.diastolicBp,
         kickCount: input.kickCount,
         bloodSugar: input.bloodSugar,
+        mood: input.mood,
+        sleepHours: input.sleepHours,
+        hydrationWater: input.hydrationWater,
+        nutritionCalories: input.nutritionCalories,
+        nutritionMealNotes: input.nutritionMealNotes,
         loggedAt: input.loggedAt || new Date()
       });
 
