@@ -56,6 +56,21 @@ export class AuthManager extends BaseManager {
         });
       }
 
+      // Find or create a default role for newly registered Partners
+      let partnerRole = await Role.findOne({ where: { roleType: 'PARTNER' } });
+      if (!partnerRole) {
+        partnerRole = await Role.create({
+          id: uuidv4(),
+          name: "Partner",
+          description: "Default Partner Role",
+          roleType: "PARTNER",
+          centerId: defaultCenter.id,
+          isSystemDefine: true,
+          createdBy: "00000000-0000-0000-0000-000000000000",
+          updatedBy: "00000000-0000-0000-0000-000000000000"
+        });
+      }
+
       let user = await User.findOne({ where: { firebaseUid } });
 
       // A verified email may safely link a pre-Firebase account during migration.

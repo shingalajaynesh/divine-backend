@@ -18,6 +18,8 @@ import { supportResolvers } from './resolvers/support.js';
 import { storeResolvers } from './resolvers/store.js';
 import { subscriptionResolvers } from './resolvers/subscription.js';
 import { crmResolvers } from './resolvers/crm.js';
+import { staffTaskResolvers } from './resolvers/staffTask.js';
+import { adminResolvers } from './resolvers/admin.js';
 
 export const resolvers = {
   User: {
@@ -37,6 +39,9 @@ export const resolvers = {
   },
   LiveClass: {
     ...liveClassResolvers.LiveClass,
+  },
+  ConsultationBooking: {
+    ...bookingResolvers.ConsultationBooking,
   },
   Inquiry: {
     ...inquiryResolvers.Inquiry,
@@ -83,6 +88,12 @@ export const resolvers = {
   AdminAuditLog: {
     ...crmResolvers.AdminAuditLog,
   },
+  StaffTask: {
+    ...staffTaskResolvers.StaffTask,
+  },
+  LiveClassBooking: {
+    ...staffTaskResolvers.LiveClassBooking,
+  },
   Query: {
     ...userResolvers.Query,
     ...contentResolvers.Query,
@@ -104,6 +115,8 @@ export const resolvers = {
     ...storeResolvers.Query,
     ...subscriptionResolvers.Query,
     ...crmResolvers.Query,
+    ...staffTaskResolvers.Query,
+    ...adminResolvers.Query,
   },
   Mutation: {
     ...userResolvers.Mutation,
@@ -126,5 +139,6 @@ export const resolvers = {
     ...storeResolvers.Mutation,
     ...subscriptionResolvers.Mutation,
     ...crmResolvers.Mutation,
+    ...staffTaskResolvers.Mutation,
   }
 };

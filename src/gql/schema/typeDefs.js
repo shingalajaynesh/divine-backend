@@ -35,6 +35,23 @@ export const typeDefs = `#graphql
     pregnancyDay: Int
     language: String!
     subscriptionStatus: String!
+    partner: User
+    shareVitalsWithPartner: Boolean!
+    shareReportsWithPartner: Boolean!
+  }
+
+  type PartnerDashboardData {
+    motherName: String!
+    pregnancyDay: Int
+    currentWeek: Int
+    currentTrimester: Int
+    babySize: String
+    babyMilestone: String
+    progressPercent: Int!
+    dailyQuizAttempted: Boolean!
+    partnerActivityCompleted: Boolean!
+    partnerActivityTitle: String
+    partnerActivityDescription: String
   }
 
   type DailyContent {
@@ -102,6 +119,20 @@ export const typeDefs = `#graphql
     attended: Boolean!
     feedbackScore: Int
     feedbackNotes: String
+    user: User
+  }
+
+  type StaffTask {
+    id: ID!
+    staffId: ID!
+    userId: ID
+    title: String!
+    description: String
+    dueDate: String
+    completed: Boolean!
+    createdAt: String!
+    updatedAt: String!
+    user: User
   }
 
   input SubmitLiveClassFeedbackInput {
@@ -765,7 +796,31 @@ export const typeDefs = `#graphql
     source: String
   }
 
+  type CenterKpis {
+    totalMothers: Int!
+    activeStaff: Int!
+    premiumEnrollments: Int!
+    slaBreachedTickets: Int!
+    enrollmentTrend: [EnrollmentTrendPoint!]!
+    staffHealth: [StaffHealthPoint!]!
+    escalatedTickets: [SupportTicket!]!
+  }
+
+  type EnrollmentTrendPoint {
+    weekLabel: String!
+    count: Int!
+  }
+
+  type StaffHealthPoint {
+    staffId: ID!
+    displayName: String!
+    email: String!
+    pendingTasksCount: Int!
+    completedTasksCount: Int!
+  }
+
   type Query {
+    getCenterKpis: CenterKpis!
     me: User
     getUser(id: ID!): User
     getUsers(isActive: Boolean): [User!]!
@@ -829,6 +884,9 @@ export const typeDefs = `#graphql
     getCrmUsers: [CrmUser!]!
     getCrmNotes(userId: ID!): [CrmNote!]!
     getAuditLogs: [AdminAuditLog!]!
+    getPartnerDashboard: PartnerDashboardData
+    getLiveClassBookings(classId: ID!): [LiveClassBooking!]!
+    getStaffTasks: [StaffTask!]!
   }
 
   type Mutation {
@@ -898,6 +956,9 @@ export const typeDefs = `#graphql
     submitQuizAnswer(dayNumber: Int!, selectedOptionIndex: Int!): QuizAttempt!
     acknowledgePartnerActivity(dayNumber: Int!): PartnerActivityLog!
     toggleSensoryActivity(dayNumber: Int!): SensoryActivityLog!
+    linkPartner(partnerEmail: String!): User!
+    sendEncouragement(message: String!): Boolean!
+    updatePartnerSharing(shareVitals: Boolean!, shareReports: Boolean!): User!
     createPlaylist(name: String!, description: String): AudioPlaylist!
     deletePlaylist(id: ID!): Boolean!
     addPlaylistItem(playlistId: ID!, contentItemId: ID!): AudioPlaylistItem!
@@ -942,5 +1003,12 @@ export const typeDefs = `#graphql
     verifyRazorpayPayment(planId: ID!, razorpayOrderId: String!, razorpayPaymentId: String!, razorpaySignature: String!): UserSubscription!
     addCrmNote(userId: ID!, note: String!): CrmNote!
     logAdminAction(action: String!, targetType: String, targetId: String, payload: String): AdminAuditLog!
+    recordClassAttendance(classId: ID!, userId: ID!, attended: Boolean!): LiveClassBooking!
+    createStaffTask(userId: ID, title: String!, description: String, dueDate: String): StaffTask!
+    toggleStaffTask(id: ID!): StaffTask!
+    deleteStaffTask(id: ID!): Boolean!
+    createExpertSchedule(dayOfWeek: Int!, startTime: String!, endTime: String!, slotDurationMins: Int!): ExpertSchedule!
+    deleteExpertSchedule(id: ID!): Boolean!
+    updateConsultationStatus(bookingId: ID!, status: String!): ConsultationBooking!
   }
 `;

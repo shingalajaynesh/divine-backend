@@ -10,6 +10,7 @@ import { calculatePregnancyStats } from '../../../util/pregnancy.js';
 const canViewPrivateUserFields = (parent, viewer) => {
   if (!viewer) return false;
   if (viewer.id === parent.id) return true;
+  if (viewer.partnerId === parent.id || parent.partnerId === viewer.id) return true;
   return viewer.role?.roleType === 'ADMIN' || viewer.role?.roleType === 'STAFF';
 };
 
@@ -49,6 +50,18 @@ export const userResolvers = {
     },
     language: (parent) => parent.language || 'en',
     subscriptionStatus: (parent) => parent.subscriptionStatus || 'free',
+    partner: async (parent, args, context) => {
+      if (parent.partner) return parent.partner;
+      if (!parent.partnerId) return null;
+      return await context.models.User.findByPk(parent.partnerId, {
+        include: [
+          { model: context.models.Role, as: 'role' },
+          { model: context.models.Center, as: 'center' }
+        ]
+      });
+    },
+    shareVitalsWithPartner: (parent) => parent.shareVitalsWithPartner ?? true,
+    shareReportsWithPartner: (parent) => parent.shareReportsWithPartner ?? true,
   },
 
   Payment: {

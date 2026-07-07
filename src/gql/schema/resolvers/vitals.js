@@ -4,7 +4,20 @@ export const vitalsResolvers = {
   Query: {
     getMyVitals: authenticate(async (parent, args, context) => {
       const { vitalsManager } = context;
-      return await vitalsManager.getVitalsHistory(context.viewer.id);
+      let targetUserId = context.viewer.id;
+
+      if (context.viewer.role?.roleType === 'PARTNER') {
+        if (!context.viewer.partnerId) {
+          return [];
+        }
+        const mother = await context.models.User.findByPk(context.viewer.partnerId);
+        if (!mother || !mother.shareVitalsWithPartner) {
+          return [];
+        }
+        targetUserId = mother.id;
+      }
+
+      return await vitalsManager.getVitalsHistory(targetUserId);
     }),
   },
 

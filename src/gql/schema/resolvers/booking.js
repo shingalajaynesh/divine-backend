@@ -45,7 +45,7 @@ export const bookingResolvers = {
 
     getMyConsultations: authenticate(async (parent, args, context) => {
       const { models } = context;
-      const isExpert = context.viewer.role?.roleType === 'STAFF' || context.viewer.role?.roleType === 'ADMIN';
+      const isExpert = ['GUIDE', 'STAFF', 'ADMIN'].includes(context.viewer.role?.roleType);
       const where = isExpert ? { expertId: context.viewer.id } : { userId: context.viewer.id };
 
       return await models.ConsultationBooking.findAll({
@@ -169,6 +169,56 @@ export const bookingResolvers = {
     submitCaseNotes: authenticate(async (parent, { input }, context) => {
       const service = new ConsultationService(context.models, context.sequelize);
       return service.submitCaseNotes(context.viewer.id, input);
+    }),
+
+    createExpertSchedule: authenticate(async (parent, { dayOfWeek, startTime, endTime, slotDurationMins }, context) => {
+      const role = context.viewer.role?.roleType;
+      if (!['GUIDE', 'STAFF', 'ADMIN'].includes(role)) {
+        throw new Error('Unauthorized');
+      }
+
+      return await context.models.ExpertSchedule.create({
+        expertId: context.viewer.id,
+        dayOfWeek,
+        startTime,
+        endTime,
+        slotDurationMins
+      });
+    }),
+
+    deleteExpertSchedule: authenticate(async (parent, { id }, context) => {
+      const role = context.viewer.role?.roleType;
+      if (!['GUIDE', 'STAFF', 'ADMIN'].includes(role)) {
+        throw new Error('Unauthorized');
+      }
+
+      const schedule = await context.models.ExpertSchedule.findByPk(id);
+      if (!schedule) throw new Error('Schedule slot not found');
+
+      if (schedule.expertId !== context.viewer.id && role !== 'ADMIN') {
+        throw new Error('Unauthorized to modify this schedule');
+      }
+
+      await schedule.destroy();
+      return true;
+    }),
+
+    updateConsultationStatus: authenticate(async (parent, { bookingId, status }, context) => {
+      const role = context.viewer.role?.roleType;
+      if (!['GUIDE', 'STAFF', 'ADMIN'].includes(role)) {
+        throw new Error('Unauthorized');
+      }
+
+      const booking = await context.models.ConsultationBooking.findByPk(bookingId);
+      if (!booking) throw new Error('Booking not found');
+
+      if (booking.expertId !== context.viewer.id && role !== 'ADMIN') {
+        throw new Error('Unauthorized to modify this booking');
+      }
+
+      booking.status = status;
+      await booking.save();
+      return booking;
     })
   }
 };
