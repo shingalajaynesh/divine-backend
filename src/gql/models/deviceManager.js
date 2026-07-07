@@ -96,11 +96,23 @@ export class DeviceManager extends BaseManager {
       const Parameter = this.models.Parameter;
       const RegisteredDevice = this.models.RegisteredDevice;
 
-      // Check if device whitelisting is enabled
-      const whitelistParam = await Parameter.findOne({
-        where: { key: 'ENABLE_DEVICE_WHITELISTING', centerId }
-      });
-      const whitelistEnabled = whitelistParam ? whitelistParam.value === 'true' : false;
+      // Check if device whitelisting is enabled (with short-term in-memory cache)
+      if (!global.DEVICE_PARAM_CACHE) {
+        global.DEVICE_PARAM_CACHE = new Map();
+      }
+      const cacheKey = `ENABLE_DEVICE_WHITELISTING_${centerId || 'null'}`;
+      const now = Date.now();
+      let whitelistEnabled = false;
+
+      if (global.DEVICE_PARAM_CACHE.has(cacheKey) && global.DEVICE_PARAM_CACHE.get(cacheKey).expiry > now) {
+        whitelistEnabled = global.DEVICE_PARAM_CACHE.get(cacheKey).value;
+      } else {
+        const whitelistParam = await Parameter.findOne({
+          where: { key: 'ENABLE_DEVICE_WHITELISTING', centerId }
+        });
+        whitelistEnabled = whitelistParam ? whitelistParam.value === 'true' : false;
+        global.DEVICE_PARAM_CACHE.set(cacheKey, { value: whitelistEnabled, expiry: now + 60000 }); // Cache for 1 min
+      }
 
       if (!whitelistEnabled) {
         return { isValid: true, reason: 'Device whitelisting disabled' };
@@ -122,8 +134,13 @@ export class DeviceManager extends BaseManager {
         return { isValid: false, reason: `Device status is: ${device.status}` };
       }
 
-      // Update last seen
-      await device.update({ lastSeenAt: new Date() });
+      // Update last seen (throttled to max once per minute)
+      const lastSeenKey = `device_last_seen_${device.id}`;
+      if (!global.DEVICE_PARAM_CACHE.has(lastSeenKey) || global.DEVICE_PARAM_CACHE.get(lastSeenKey).expiry < now) {
+        await device.update({ lastSeenAt: new Date() });
+        global.DEVICE_PARAM_CACHE.set(lastSeenKey, { value: true, expiry: now + 60000 });
+      }
+
       return { isValid: true, device };
     } catch (error) {
       this.log.error('Error validating device:', error);

@@ -103,18 +103,29 @@ export class SessionManager extends BaseManager {
         return { valid: false, reason: 'SESSION_EXPIRED' };
       }
 
-      // Fetch inactivity timeout configuration
+      // Fetch inactivity timeout configuration (with short-term in-memory cache)
+      if (!global.SESSION_PARAM_CACHE) {
+        global.SESSION_PARAM_CACHE = new Map();
+      }
+      const cacheKey = `sessionInactivityTimeout_${centerId || 'null'}`;
+      const now = Date.now();
       let inactivityTimeout = 2 * 60 * 60; // Default to 2 hours in seconds
-      const timeoutParam = await Parameter.findOne({
-        where: { key: 'sessionInactivityTimeout', centerId }
-      });
-      if (timeoutParam) inactivityTimeout = parseInt(timeoutParam.value, 10) || 7200;
+
+      if (global.SESSION_PARAM_CACHE.has(cacheKey) && global.SESSION_PARAM_CACHE.get(cacheKey).expiry > now) {
+        inactivityTimeout = global.SESSION_PARAM_CACHE.get(cacheKey).value;
+      } else {
+        const timeoutParam = await Parameter.findOne({
+          where: { key: 'sessionInactivityTimeout', centerId }
+        });
+        if (timeoutParam) inactivityTimeout = parseInt(timeoutParam.value, 10) || 7200;
+        global.SESSION_PARAM_CACHE.set(cacheKey, { value: inactivityTimeout, expiry: now + 60000 }); // Cache for 1 min
+      }
 
       // Verify inactivity time
       if (inactivityTimeout > 0) {
         const lastAccessed = new Date(session.lastAccessedAt);
-        const now = new Date();
-        const inactiveSeconds = (now - lastAccessed) / 1000;
+        const curDate = new Date();
+        const inactiveSeconds = (curDate - lastAccessed) / 1000;
 
         if (inactiveSeconds > inactivityTimeout) {
           await session.update({ isActive: false });
@@ -123,8 +134,13 @@ export class SessionManager extends BaseManager {
         }
       }
 
-      // Update last accessed time
-      await session.update({ lastAccessedAt: new Date() });
+      // Update last accessed time (throttled to max once per minute)
+      const lastAccessKey = `session_last_access_${session.id}`;
+      if (!global.SESSION_PARAM_CACHE.has(lastAccessKey) || global.SESSION_PARAM_CACHE.get(lastAccessKey).expiry < now) {
+        await session.update({ lastAccessedAt: new Date() });
+        global.SESSION_PARAM_CACHE.set(lastAccessKey, { value: true, expiry: now + 60000 });
+      }
+
       return { valid: true, session };
     } catch (error) {
       this.log.error(`Error validating session ${sessionId}:`, error);
