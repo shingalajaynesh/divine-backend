@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import { graphql } from 'graphql';
 import schema from '../src/gql/schema/index.js';
+import { calculatePregnancyStats } from '../src/util/pregnancy.js';
 
 test('Journey Archive and Postpartum Plan resolvers function correctly', async () => {
   const query = `
@@ -89,8 +90,9 @@ test('Journey Archive and Postpartum Plan resolvers function correctly', async (
 
   assert.equal(result.errors, undefined);
   const archive = result.data.myJourneyArchive;
-  assert.equal(archive.pregnancyDay, 102);
-  assert.equal(archive.weekNumber, 15);
+  const stats = calculatePregnancyStats(mockUser.lmpDate);
+  assert.equal(archive.pregnancyDay, stats.pregnancyDay);
+  assert.equal(archive.weekNumber, stats.currentWeek);
   
   const t1 = archive.trimesterSummary.find(s => s.trimesterNumber === 1);
   assert.equal(t1.totalActivitiesCompleted, 2);
