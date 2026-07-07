@@ -118,7 +118,6 @@ export class SessionManager extends BaseManager {
         global.SESSION_PARAM_CACHE = new Map();
       }
       const cacheKey = `sessionInactivityTimeout_${centerId || 'null'}`;
-      const now = Date.now();
       let inactivityTimeout = 2 * 60 * 60; // Default to 2 hours in seconds
 
       if (global.SESSION_PARAM_CACHE.has(cacheKey) && global.SESSION_PARAM_CACHE.get(cacheKey).expiry > now) {
