@@ -18,17 +18,32 @@ export class DeviceManager extends BaseManager {
       const RegisteredDevice = this.models.RegisteredDevice;
       const deviceId = deviceInfo.deviceId || this.generateDeviceId(deviceInfo.userAgent, deviceInfo.ipAddress);
 
+      if (!global.DEVICE_PARAM_CACHE) {
+        global.DEVICE_PARAM_CACHE = new Map();
+      }
+      const cacheKey = `device_reg_cache_${userId}_${deviceId}`;
+      const now = Date.now();
+
+      if (global.DEVICE_PARAM_CACHE.has(cacheKey) && global.DEVICE_PARAM_CACHE.get(cacheKey).expiry > now) {
+        return global.DEVICE_PARAM_CACHE.get(cacheKey).device;
+      }
+
       // Check if device is already registered for this user
       const existing = await RegisteredDevice.findOne({
         where: { deviceId, registeredBy: userId }
       });
 
       if (existing) {
-        await existing.update({
-          lastSeenAt: new Date(),
-          ipAddress: deviceInfo.ipAddress || existing.ipAddress,
-          location: deviceInfo.location || existing.location,
-        });
+        const updateKey = `device_update_throttle_${existing.id}`;
+        if (!global.DEVICE_PARAM_CACHE.has(updateKey) || global.DEVICE_PARAM_CACHE.get(updateKey).expiry < now) {
+          await existing.update({
+            lastSeenAt: new Date(),
+            ipAddress: deviceInfo.ipAddress || existing.ipAddress,
+            location: deviceInfo.location || existing.location,
+          });
+          global.DEVICE_PARAM_CACHE.set(updateKey, { value: true, expiry: now + 60000 });
+        }
+        global.DEVICE_PARAM_CACHE.set(cacheKey, { device: existing, expiry: now + 300000 }); // Cache for 5 mins
         return existing;
       }
 

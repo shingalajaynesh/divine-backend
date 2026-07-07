@@ -92,6 +92,16 @@ export class SessionManager extends BaseManager {
       const UserSession = this.models.UserSession;
       const Parameter = this.models.Parameter;
 
+      if (!global.SESSION_PARAM_CACHE) {
+        global.SESSION_PARAM_CACHE = new Map();
+      }
+      const sessionCacheKey = `session_val_cache_${sessionId}`;
+      const now = Date.now();
+
+      if (global.SESSION_PARAM_CACHE.has(sessionCacheKey) && global.SESSION_PARAM_CACHE.get(sessionCacheKey).expiry > now) {
+        return { valid: true, session: global.SESSION_PARAM_CACHE.get(sessionCacheKey).session };
+      }
+
       const session = await UserSession.findByPk(sessionId);
       if (!session || !session.isActive) {
         return { valid: false, reason: 'SESSION_NOT_FOUND' };
@@ -140,6 +150,9 @@ export class SessionManager extends BaseManager {
         await session.update({ lastAccessedAt: new Date() });
         global.SESSION_PARAM_CACHE.set(lastAccessKey, { value: true, expiry: now + 60000 });
       }
+
+      // Cache the valid session check for 15 seconds to prevent redundant DB calls across concurrent requests
+      global.SESSION_PARAM_CACHE.set(sessionCacheKey, { session, expiry: now + 15000 });
 
       return { valid: true, session };
     } catch (error) {
