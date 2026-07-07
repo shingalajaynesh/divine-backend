@@ -42,6 +42,14 @@ const updateAllManagersViewer = (viewer, managers) => {
   });
 };
 
+const buildDeviceInfo = (headersLike = {}, fallbackType = 'web') => ({
+  deviceId: headersLike['x-device-id'] || headersLike.deviceId || '',
+  deviceName: headersLike['x-device-name'] || headersLike.deviceName || '',
+  deviceType: headersLike['x-device-type'] || headersLike.deviceType || fallbackType,
+  userAgent: headersLike['user-agent'] || headersLike.userAgent || '',
+  ipAddress: headersLike.ipAddress || '',
+});
+
 const createContext = async ({ req, res }) => {
   const log = req.logger.configureLogger();
   const requestId = req.requestId || uuidv4();
@@ -103,13 +111,10 @@ const createContext = async ({ req, res }) => {
         updateAllManagersViewer(viewer, managers);
 
         // 3. Extract device headers
-        const deviceInfo = {
-          deviceId: req.headers['x-device-id'] || '',
-          deviceName: req.headers['x-device-name'] || '',
-          deviceType: req.headers['x-device-type'] || 'web',
-          userAgent: req.headers['user-agent'] || '',
+        const deviceInfo = buildDeviceInfo({
+          ...req.headers,
           ipAddress: req.ip || req.connection.remoteAddress || '',
-        };
+        }, 'web');
 
         // 4. Validate device whitelisting
         const isDeviceOp = req.body?.query?.includes('registerDevice') || 
@@ -222,6 +227,7 @@ export default async (httpServer, models) => {
             if (verifiedToken?.uid) {
               const firebaseUid = verifiedToken.uid;
               const emailAddress = verifiedToken.email?.trim().toLowerCase() || '';
+              const sid = firebaseUid + '_' + verifiedToken.auth_time;
               viewer = await models.User.findOne({
                 where: {
                   [Op.or]: [
@@ -238,6 +244,20 @@ export default async (httpServer, models) => {
                 if (!viewer.firebaseUid) {
                   await viewer.update({ firebaseUid });
                 }
+
+                const deviceInfo = buildDeviceInfo(ctx.connectionParams || {}, 'websocket');
+                const deviceCheck = await deviceManager.validateDevice(viewer.id, deviceInfo.deviceId, viewer.centerId);
+                if (!deviceCheck.isValid && deviceCheck.reason !== 'Device whitelisting disabled') {
+                  throw new Error(`Device unauthorized: ${deviceCheck.reason}`);
+                }
+
+                if (sid) {
+                  const sessionCheck = await sessionManager.validateSession(sid, viewer.centerId);
+                  if (!sessionCheck.valid && sessionCheck.reason !== 'SESSION_NOT_FOUND') {
+                    throw new Error(`Session invalid: ${sessionCheck.reason}`);
+                  }
+                }
+
                 updateAllManagersViewer(viewer, managers);
               }
             }

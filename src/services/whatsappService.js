@@ -44,7 +44,7 @@ export class WhatsAppService {
 
     const fullMessage = `${greeting}\n\n*${headerMsg}*\n\n${contentText}\n\n${footerMsg}`;
 
-    log.info(`Sending daily WhatsApp message to ${mobileNo} (${lang}):`, { message: fullMessage });
+    log.info(`Sending daily WhatsApp message to ${mobileNo} (${lang}) for user ${user.id}.`);
 
     // Meta API Configuration
     const token = process.env.WP_FALLBACK_ACCESS_TOKEN || 'EAA...';
@@ -56,7 +56,7 @@ export class WhatsAppService {
     // For local development, if fallback credentials are mock values, log and succeed
     if (token === 'EAA...' || phoneId === '123456') {
       log.info(`[MOCK MODE] WhatsApp message sent successfully via console fallback for user: ${user.id}`);
-      return { success: true, mock: true, message: fullMessage };
+      return { success: true, mock: true };
     }
 
     try {

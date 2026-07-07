@@ -58,5 +58,6 @@ export const initializeDataModels = (logger) => {
   }
 
   dataModels.init(config);
+  dataModels.models.Sequelize = dataModels.sequelize.constructor;
   return dataModels;
 };

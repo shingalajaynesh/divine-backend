@@ -1,6 +1,7 @@
-# Production Multi-Stage Dockerfile for Divine Backend
 # Stage 1: Build dependencies
 FROM node:20-alpine AS builder
+
+RUN apk add --no-cache git
 
 WORKDIR /app
 

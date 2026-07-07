@@ -7,8 +7,19 @@ import {
 } from '../permissions/index.js';
 import { calculatePregnancyStats } from '../../../util/pregnancy.js';
 
+const canViewPrivateUserFields = (parent, viewer) => {
+  if (!viewer) return false;
+  if (viewer.id === parent.id) return true;
+  return viewer.role?.roleType === 'ADMIN' || viewer.role?.roleType === 'STAFF';
+};
+
 export const userResolvers = {
   User: {
+    firebaseUid: () => null,
+    emailAddress: (parent, args, context) =>
+      canViewPrivateUserFields(parent, context.viewer) ? parent.emailAddress : null,
+    mobileNo: (parent, args, context) =>
+      canViewPrivateUserFields(parent, context.viewer) ? parent.mobileNo : null,
     center: async (parent, args, context) => {
       if (parent.center) return parent.center;
       if (!parent.centerId) return null;
@@ -38,6 +49,10 @@ export const userResolvers = {
     },
     language: (parent) => parent.language || 'en',
     subscriptionStatus: (parent) => parent.subscriptionStatus || 'free',
+  },
+
+  Payment: {
+    stripeSessionId: () => null,
   },
 
   Query: {

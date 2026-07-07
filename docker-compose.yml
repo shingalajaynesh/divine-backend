@@ -36,6 +36,8 @@ services:
       - FIREBASE_CLIENT_EMAIL=${FIREBASE_CLIENT_EMAIL:-}
       - FIREBASE_PRIVATE_KEY=${FIREBASE_PRIVATE_KEY:-}
       - ALLOWED_ORIGINS=${ALLOWED_ORIGINS:-http://localhost:3000,http://localhost:5173,http://localhost:5174,http://localhost:8081}
+      - BACKEND_SELF_PING_URL=${BACKEND_SELF_PING_URL:-}
+      - SELF_PING_INTERVAL_MS=${SELF_PING_INTERVAL_MS:-}
     depends_on:
       - postgres
 

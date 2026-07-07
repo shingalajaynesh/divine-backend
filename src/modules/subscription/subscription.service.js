@@ -6,6 +6,30 @@ export class SubscriptionService {
     this.sequelize = sequelize;
   }
 
+  getRazorpayCredentials() {
+    const keyId = process.env.RAZORPAY_KEY_ID;
+    const keySecret = process.env.RAZORPAY_KEY_SECRET;
+    const isTestEnv = process.env.NODE_ENV?.includes('test');
+
+    if (isTestEnv) {
+      return {
+        keyId: keyId || 'mock_key_id',
+        keySecret: keySecret || 'mock_key_secret',
+        allowMock: true,
+      };
+    }
+
+    if (!keyId || !keySecret) {
+      throw new Error('Razorpay is not configured on the server.');
+    }
+
+    return {
+      keyId,
+      keySecret,
+      allowMock: false,
+    };
+  }
+
   // 1. Browse Plans
   async getPlans() {
     return this.models.SubscriptionPlan.findAll({
@@ -177,13 +201,12 @@ export class SubscriptionService {
       }
     }
 
-    const keyId = process.env.RAZORPAY_KEY_ID || 'mock_key_id';
-    const keySecret = process.env.RAZORPAY_KEY_SECRET || 'mock_key_secret';
+    const { keyId, keySecret, allowMock } = this.getRazorpayCredentials();
     const amountInPaise = Math.round(finalAmount * 100);
 
-    // Mock API call in tests or if keys are mock
+    // Mock API call is allowed only in the automated test environment.
     let orderId = `order_${Math.random().toString(36).substring(2, 15)}`;
-    if (keyId !== 'mock_key_id' && !process.env.NODE_ENV?.includes('test')) {
+    if (!allowMock) {
       try {
         const response = await fetch('https://api.razorpay.com/v1/orders', {
           method: 'POST',
@@ -197,12 +220,15 @@ export class SubscriptionService {
             receipt: `receipt_${Date.now()}`
           })
         });
-        if (response.ok) {
-          const order = await response.json();
-          orderId = order.id;
+        if (!response.ok) {
+          const errorPayload = await response.text();
+          throw new Error(`Razorpay order creation failed: ${errorPayload}`);
         }
+
+        const order = await response.json();
+        orderId = order.id;
       } catch (err) {
-        console.error('Razorpay API request failed, falling back to mock order id', err);
+        throw new Error(`Razorpay API request failed: ${err.message}`);
       }
     }
 
@@ -227,17 +253,17 @@ export class SubscriptionService {
     const crypto = await import('crypto');
     return this.sequelize.transaction(async (t) => {
       const payment = await this.models.Payment.findOne({
-        where: { razorpayOrderId },
+        where: { razorpayOrderId, userId, status: 'pending' },
         transaction: t
       });
       if (!payment) throw new Error('Payment record not found');
 
       // Verify signature locally
-      const keySecret = process.env.RAZORPAY_KEY_SECRET || 'mock_key_secret';
+      const { keySecret, allowMock } = this.getRazorpayCredentials();
       const expected = crypto.createHmac('sha256', keySecret)
                             .update(razorpayOrderId + '|' + razorpayPaymentId)
                             .digest('hex');
-      if (expected !== razorpaySignature && !['mock', 'mock_key_secret'].includes(keySecret)) {
+      if (expected !== razorpaySignature && !allowMock) {
         throw new Error('Invalid Razorpay signature verification');
       }
 

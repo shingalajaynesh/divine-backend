@@ -19,7 +19,7 @@ export const typeDefs = `#graphql
   type User {
     id: ID!
     firebaseUid: String
-    emailAddress: String!
+    emailAddress: String
     displayName: String
     firstName: String
     lastName: String
@@ -195,7 +195,7 @@ export const typeDefs = `#graphql
 
   type Payment {
     id: ID!
-    stripeSessionId: String!
+    stripeSessionId: String
     amount: Float!
     status: String!
     createdAt: String!
