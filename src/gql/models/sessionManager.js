@@ -75,7 +75,11 @@ export class SessionManager extends BaseManager {
       this.log.info(`Created new session in database: ${session.id} (User: ${userId})`);
       return session;
     } catch (error) {
-      this.log.error('Failed to create user session:', error);
+      if (error.name === 'SequelizeUniqueConstraintError') {
+        this.log.info(`Session ${deviceInfo.id || 'unknown'} already exists in database (concurrent request).`);
+      } else {
+        this.log.error('Failed to create user session:', error);
+      }
       throw error;
     }
   }
