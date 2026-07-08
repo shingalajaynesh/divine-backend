@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { Op } from 'sequelize';
 
 export const bookClassInputSchema = z.object({
   liveClassId: z.string().uuid()
@@ -16,8 +17,20 @@ export class LiveClassService {
     this.sequelize = sequelize;
   }
 
-  async getLiveClasses(userId) {
+  async getLiveClasses(userId, viewer) {
+    const where = {};
+    if (viewer) {
+      const isSuperAdmin = viewer.role?.roleType === 'SUPER_ADMIN';
+      if (!isSuperAdmin && viewer.centerId) {
+        where[Op.or] = [
+          { centerId: viewer.centerId },
+          { centerId: null }
+        ];
+      }
+    }
+
     const classes = await this.models.LiveClass.findAll({
+      where,
       order: [['startTime', 'ASC']]
     });
 
@@ -38,6 +51,9 @@ export class LiveClassService {
         durationMins: c.durationMins,
         videoCallUrl: c.videoCallUrl,
         replayUrl: c.replayUrl,
+        centerId: c.centerId,
+        seriesTitle: c.seriesTitle,
+        batchName: c.batchName,
         booked: !!booking,
         attended: booking ? booking.attended : false,
         feedbackScore: booking ? booking.feedbackScore : null,
@@ -93,5 +109,113 @@ export class LiveClassService {
     liveClass.replayUrl = parsedUrl;
     await liveClass.save();
     return liveClass;
+  }
+
+  async createLiveClass(viewer, input) {
+    if (viewer.role?.roleType !== 'ADMIN' && viewer.role?.roleType !== 'STAFF') {
+      throw new Error('Unauthorized');
+    }
+    const { titleEn, titleHi, instructor, startTime, durationMins, videoCallUrl, seriesTitle, batchName, centerId } = input;
+    
+    const targetCenterId = centerId || viewer.centerId;
+
+    const liveClass = await this.models.LiveClass.create({
+      titleEn,
+      titleHi,
+      instructor,
+      startTime: new Date(startTime),
+      durationMins,
+      videoCallUrl,
+      seriesTitle,
+      batchName,
+      centerId: targetCenterId
+    });
+
+    return liveClass;
+  }
+
+  async updateLiveClass(viewer, input) {
+    if (viewer.role?.roleType !== 'ADMIN' && viewer.role?.roleType !== 'STAFF') {
+      throw new Error('Unauthorized');
+    }
+    const { id, titleEn, titleHi, instructor, startTime, durationMins, videoCallUrl, seriesTitle, batchName, replayUrl } = input;
+
+    const liveClass = await this.models.LiveClass.findByPk(id);
+    if (!liveClass) throw new Error('Live class not found');
+
+    if (viewer.role?.roleType !== 'SUPER_ADMIN' && liveClass.centerId && liveClass.centerId !== viewer.centerId) {
+      throw new Error('Unauthorized center access');
+    }
+
+    if (titleEn !== undefined) liveClass.titleEn = titleEn;
+    if (titleHi !== undefined) liveClass.titleHi = titleHi;
+    if (instructor !== undefined) liveClass.instructor = instructor;
+    if (startTime !== undefined) liveClass.startTime = new Date(startTime);
+    if (durationMins !== undefined) liveClass.durationMins = durationMins;
+    if (videoCallUrl !== undefined) liveClass.videoCallUrl = videoCallUrl;
+    if (seriesTitle !== undefined) liveClass.seriesTitle = seriesTitle;
+    if (batchName !== undefined) liveClass.batchName = batchName;
+    if (replayUrl !== undefined) liveClass.replayUrl = replayUrl;
+
+    await liveClass.save();
+    return liveClass;
+  }
+
+  async deleteLiveClass(viewer, id) {
+    if (viewer.role?.roleType !== 'ADMIN' && viewer.role?.roleType !== 'STAFF') {
+      throw new Error('Unauthorized');
+    }
+
+    const liveClass = await this.models.LiveClass.findByPk(id);
+    if (!liveClass) throw new Error('Live class not found');
+
+    if (viewer.role?.roleType !== 'SUPER_ADMIN' && liveClass.centerId && liveClass.centerId !== viewer.centerId) {
+      throw new Error('Unauthorized center access');
+    }
+
+    await liveClass.destroy();
+    return true;
+  }
+
+  async sendLiveClassReminder(viewer, classId) {
+    if (viewer.role?.roleType !== 'ADMIN' && viewer.role?.roleType !== 'STAFF') {
+      throw new Error('Unauthorized');
+    }
+
+    const liveClass = await this.models.LiveClass.findByPk(classId);
+    if (!liveClass) throw new Error('Live class not found');
+
+    const bookings = await this.models.LiveClassBooking.findAll({
+      where: { liveClassId: classId },
+      include: [{ model: this.models.User, as: 'user' }]
+    });
+
+    for (const booking of bookings) {
+      const user = booking.user;
+      if (!user) continue;
+
+      const title = user.language === 'hi' ? 'लाइव क्लास रिमाइंडर' : 'Live Class Reminder';
+      const body = user.language === 'hi'
+        ? `आपकी क्लास "${liveClass.titleHi}" जल्द शुरू होगी।`
+        : `Your live class "${liveClass.titleEn}" starts soon.`;
+
+      const notification = await this.models.Notification.create({
+        userId: user.id,
+        title,
+        body,
+        type: 'reminder',
+        status: 'unread'
+      });
+
+      await this.models.NotificationDelivery.create({
+        notificationId: notification.id,
+        userId: user.id,
+        channel: 'in_app',
+        status: 'delivered',
+        deliveredAt: new Date()
+      });
+    }
+
+    return true;
   }
 }

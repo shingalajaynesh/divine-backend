@@ -112,6 +112,9 @@ export const typeDefs = `#graphql
     attended: Boolean!
     feedbackScore: Int
     feedbackNotes: String
+    centerId: ID
+    seriesTitle: String
+    batchName: String
   }
 
   type LiveClassBooking {
@@ -595,7 +598,7 @@ export const typeDefs = `#graphql
     id: ID!, slug: String!, contentType: String!, status: String!, visibility: String!, publishAt: String, unpublishAt: String
     category: ContentCategory, coverAsset: MediaAsset, translations: [ContentTranslation!]!, translation: ContentTranslation
     trimester1Safe: Boolean, trimester2Safe: Boolean, trimester3Safe: Boolean, contraindications: String
-    medicalReviewed: Boolean
+    medicalReviewed: Boolean, reviewedBy: String, feedback: String, completed: Boolean
   }
   input ContentTranslationInput { language: String!, title: String!, summary: String, body: String }
   input CreateContentItemInput {
@@ -619,6 +622,27 @@ export const typeDefs = `#graphql
     translations: [ContentTranslationInput!]
   }
   input RegisterMediaAssetInput { url: String!, mimeType: String!, kind: String!, sizeBytes: Int, durationSeconds: Int, altText: String }
+  type ContentPerformanceReport {
+    id: ID!
+    slug: String!
+    contentType: String!
+    title: String!
+    totalViews: Int!
+    uniqueViewers: Int!
+    completionCount: Int!
+    completionRate: Float!
+    saveCount: Int!
+    avgProgress: Float!
+    dropOffRate: Float!
+  }
+  type LearningPath {
+    id: ID!
+    title: String!
+    description: String!
+    icon: String!
+    progressPercent: Int!
+    items: [ContentItem!]!
+  }
   type RecentSearch { id: ID!, query: String!, resultCount: Int!, searchedAt: String! }
   type BookmarkState { contentItemId: ID!, kind: String!, saved: Boolean! }
   type ContentViewHistory { id: ID!, contentItemId: ID, dailyContentId: ID, lastPositionSeconds: Int!, progressPercent: Float!, completed: Boolean!, viewCount: Int!, viewedAt: String! }
@@ -982,6 +1006,8 @@ export const typeDefs = `#graphql
     programCatalog: [Program!]!
     myProgramEnrollments: [ProgramEnrollment!]!
     contentFeed(language: String, categorySlug: String, contentType: String, limit: Int, offset: Int): [ContentItem!]!
+    recommendedContentFeed(language: String, limit: Int): [ContentItem!]!
+    myLearningPaths(language: String): [LearningPath!]!
     manageContent(status: String, search: String, limit: Int, offset: Int): [ContentItem!]!
     searchContent(query: String!, language: String, categorySlug: String, contentType: String, limit: Int, offset: Int): [ContentItem!]!
     recentContentSearches: [RecentSearch!]!
@@ -1032,6 +1058,7 @@ export const typeDefs = `#graphql
     getPartnerDashboard: PartnerDashboardData
     getLiveClassBookings(classId: ID!): [LiveClassBooking!]!
     getStaffTasks: [StaffTask!]!
+    getContentPerformanceAnalytics: [ContentPerformanceReport!]!
   }
 
   type Mutation {
@@ -1089,6 +1116,9 @@ export const typeDefs = `#graphql
     createContentItem(input: CreateContentItemInput!): ContentItem!
     publishContentItem(id: ID!): ContentItem!
     reviewContentItem(id: ID!, reviewed: Boolean!): ContentItem!
+    submitForReview(id: ID!): ContentItem!
+    approveMedicalContent(id: ID!, feedback: String): ContentItem!
+    flagMedicalContent(id: ID!, feedback: String): ContentItem!
     updateContentItem(id: ID!, input: UpdateContentItemInput!): ContentItem!
     deleteContentItem(id: ID!): Boolean!
     registerMediaAsset(input: RegisterMediaAssetInput!): MediaAsset!
@@ -1154,6 +1184,10 @@ export const typeDefs = `#graphql
     addCrmNote(userId: ID!, note: String!): CrmNote!
     logAdminAction(action: String!, targetType: String, targetId: String, payload: String): AdminAuditLog!
     recordClassAttendance(classId: ID!, userId: ID!, attended: Boolean!): LiveClassBooking!
+    createLiveClass(titleEn: String!, titleHi: String!, instructor: String!, startTime: String!, durationMins: Int!, videoCallUrl: String!, seriesTitle: String, batchName: String, centerId: ID): LiveClass!
+    updateLiveClass(id: ID!, titleEn: String, titleHi: String, instructor: String, startTime: String, durationMins: Int, videoCallUrl: String, seriesTitle: String, batchName: String, replayUrl: String): LiveClass!
+    deleteLiveClass(id: ID!): Boolean!
+    sendLiveClassReminder(classId: ID!): Boolean!
     createStaffTask(userId: ID, title: String!, description: String, dueDate: String): StaffTask!
     toggleStaffTask(id: ID!): StaffTask!
     deleteStaffTask(id: ID!): Boolean!

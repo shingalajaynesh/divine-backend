@@ -5,15 +5,25 @@ const staff = (next) => authenticate(authorizeRoles(['STAFF', 'ADMIN'], next));
 export const contentCmsResolvers = {
   ContentItem: {
     translation: (parent) => parent.translations?.find((item) => item.language === parent.requestedLanguage) || parent.translations?.find((item) => item.language === 'en') || parent.translations?.[0] || null,
+    completed: async (parent, args, context) => {
+      if (!context.viewer) return false;
+      const history = await context.models.ContentViewHistory.findOne({
+        where: { userId: context.viewer.id, contentItemId: parent.id }
+      });
+      return !!(history && history.completed);
+    }
   },
   Query: {
     contentFeed: authenticate((parent, args, context) => context.contentCmsManager.getFeed(args)),
+    recommendedContentFeed: authenticate((parent, args, context) => context.contentCmsManager.getRecommendedContent(args)),
+    myLearningPaths: authenticate((parent, args, context) => context.contentCmsManager.getLearningPaths(args)),
     manageContent: staff((parent, args, context) => context.contentCmsManager.manage(args)),
     getCloudinarySignature: staff(async (parent, { folder }, context) => {
       const { CloudinaryService } = await import('../../../services/cloudinaryService.js');
       const service = new CloudinaryService();
       return service.generateUploadSignature({ folder });
     }),
+    getContentPerformanceAnalytics: staff((parent, args, context) => context.contentCmsManager.getContentPerformanceAnalytics(args)),
     searchContent: authenticate((parent, args, context) => context.contentCmsManager.search(args)),
     recentContentSearches: authenticate((parent, args, context) => context.contentCmsManager.recentSearches()),
     savedContent: authenticate((parent, args, context) => context.contentCmsManager.savedContent(args)),
@@ -23,6 +33,9 @@ export const contentCmsResolvers = {
     createContentItem: staff((parent, args, context) => context.contentCmsManager.create(args.input)),
     publishContentItem: authenticate(authorizeRoles(['ADMIN'], (parent, args, context) => context.contentCmsManager.publish(args.id))),
     reviewContentItem: staff((parent, args, context) => context.contentCmsManager.review(args.id, args.reviewed)),
+    submitForReview: staff((parent, args, context) => context.contentCmsManager.submitForReview(args.id)),
+    approveMedicalContent: staff((parent, args, context) => context.contentCmsManager.approveMedicalContent(args.id, args.feedback)),
+    flagMedicalContent: staff((parent, args, context) => context.contentCmsManager.flagMedicalContent(args.id, args.feedback)),
     updateContentItem: staff((parent, args, context) => context.contentCmsManager.update(args.id, args.input)),
     deleteContentItem: staff((parent, args, context) => context.contentCmsManager.deleteContentItem(args.id)),
     registerMediaAsset: staff((parent, args, context) => context.contentCmsManager.registerMedia(args.input)),

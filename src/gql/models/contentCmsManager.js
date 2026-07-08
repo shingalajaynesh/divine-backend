@@ -182,7 +182,46 @@ export class ContentCmsManager extends BaseManager {
     const item = await this.models.ContentItem.findOne({ where: { id, centerId: this.viewer.centerId || null }, include: [{ model: this.models.ContentTranslation, as: 'translations' }] });
     if (!item) throw new GraphQLError('Content item not found.', { extensions: { code: 'NOT_FOUND' } });
     if (!item.translations?.length) throw new GraphQLError('Content requires a translation before publishing.', { extensions: { code: 'BAD_USER_INPUT' } });
+    if (item.status !== 'approved') throw new GraphQLError('Only approved content items can be published.', { extensions: { code: 'BAD_USER_INPUT' } });
     await item.update({ status: 'published', publishAt: item.publishAt || new Date(), updatedBy: this.viewer.id });
+    return item.reload({ include: this.includes() });
+  }
+
+  async submitForReview(id) {
+    const item = await this.models.ContentItem.findOne({ where: { id, centerId: this.viewer.centerId || null } });
+    if (!item) throw new GraphQLError('Content item not found.', { extensions: { code: 'NOT_FOUND' } });
+    if (item.status !== 'draft') throw new GraphQLError('Only draft content items can be submitted for review.', { extensions: { code: 'BAD_USER_INPUT' } });
+    await item.update({ status: 'review', updatedBy: this.viewer.id });
+    return item.reload({ include: this.includes() });
+  }
+
+  async approveMedicalContent(id, feedback) {
+    const item = await this.models.ContentItem.findOne({ where: { id, centerId: this.viewer.centerId || null } });
+    if (!item) throw new GraphQLError('Content item not found.', { extensions: { code: 'NOT_FOUND' } });
+    if (item.status !== 'review') throw new GraphQLError('Only content items under review can be approved.', { extensions: { code: 'BAD_USER_INPUT' } });
+    
+    await item.update({
+      status: 'approved',
+      medicalReviewed: true,
+      reviewedBy: this.viewer.id,
+      feedback: feedback || null,
+      updatedBy: this.viewer.id
+    });
+    return item.reload({ include: this.includes() });
+  }
+
+  async flagMedicalContent(id, feedback) {
+    const item = await this.models.ContentItem.findOne({ where: { id, centerId: this.viewer.centerId || null } });
+    if (!item) throw new GraphQLError('Content item not found.', { extensions: { code: 'NOT_FOUND' } });
+    if (item.status !== 'review') throw new GraphQLError('Only content items under review can be flagged.', { extensions: { code: 'BAD_USER_INPUT' } });
+    
+    await item.update({
+      status: 'draft',
+      medicalReviewed: false,
+      reviewedBy: this.viewer.id,
+      feedback: feedback || null,
+      updatedBy: this.viewer.id
+    });
     return item.reload({ include: this.includes() });
   }
 
@@ -193,7 +232,12 @@ export class ContentCmsManager extends BaseManager {
     if (this.viewer.role?.roleType !== 'ADMIN' && this.viewer.role?.roleType !== 'STAFF') {
       throw new GraphQLError('Unauthorized access', { extensions: { code: 'UNAUTHORIZED' } });
     }
-    await item.update({ medicalReviewed, updatedBy: this.viewer.id });
+    await item.update({
+      medicalReviewed,
+      status: medicalReviewed ? 'approved' : 'draft',
+      reviewedBy: this.viewer.id,
+      updatedBy: this.viewer.id
+    });
     return item.reload({ include: this.includes() });
   }
 
@@ -281,5 +325,183 @@ export class ContentCmsManager extends BaseManager {
     if (!item) throw new GraphQLError('Content item not found.', { extensions: { code: 'NOT_FOUND' } });
     await item.destroy();
     return true;
+  }
+
+  async getRecommendedContent({ language = 'en', limit = 10 }) {
+    const { calculatePregnancyStats } = await import('../../util/pregnancy.js');
+    const stats = calculatePregnancyStats(this.viewer.lmpDate, this.viewer.dueDate);
+    const trimester = stats.currentTrimester || 1;
+
+    // Fetch user's latest logged vitals/symptoms
+    const latestVitals = await this.models.VitalsLog.findOne({
+      where: { userId: this.viewer.id },
+      order: [['loggedAt', 'DESC']]
+    });
+
+    // Check completed content items
+    const completedViews = await this.models.ContentViewHistory.findAll({
+      where: { userId: this.viewer.id, completed: true },
+      attributes: ['contentItemId']
+    });
+    const completedIds = completedViews.map(v => v.contentItemId).filter(Boolean);
+
+    // Build the query conditions
+    const where = {
+      status: 'published',
+      medicalReviewed: true,
+      id: { [Op.notIn]: completedIds.length ? completedIds : ['00000000-0000-0000-0000-000000000000'] }
+    };
+
+    // Filter by trimester safety
+    if (trimester === 1) {
+      where.trimester1Safe = true;
+    } else if (trimester === 2) {
+      where.trimester2Safe = true;
+    } else {
+      where.trimester3Safe = true;
+    }
+
+    // Determine category priorities based on logged symptoms
+    let prioritizedCategories = [];
+    if (latestVitals) {
+      let parsedSymptoms = [];
+      try {
+        parsedSymptoms = JSON.parse(latestVitals.symptoms || '[]');
+      } catch (e) {}
+
+      if (parsedSymptoms.includes('Insomnia') || latestVitals.mood === 'ANXIOUS' || latestVitals.mood === 'SAD') {
+        prioritizedCategories.push('mindfulness', 'meditation');
+      }
+      if (parsedSymptoms.includes('Nausea')) {
+        prioritizedCategories.push('diet', 'recipes');
+      }
+      if (parsedSymptoms.includes('Backache')) {
+        prioritizedCategories.push('yoga', 'exercise');
+      }
+    }
+
+    const include = this.includes();
+    const items = await this.models.ContentItem.findAll({
+      where,
+      include,
+      order: [['sortOrder', 'ASC'], ['publishAt', 'DESC']]
+    });
+
+    // Post-process: sort in memory to prioritize categories
+    if (prioritizedCategories.length > 0) {
+      items.sort((a, b) => {
+        const aCat = a.category?.slug;
+        const bCat = b.category?.slug;
+        const aPri = prioritizedCategories.includes(aCat) ? 0 : 1;
+        const bPri = prioritizedCategories.includes(bCat) ? 0 : 1;
+        if (aPri !== bPri) return aPri - bPri;
+        return a.sortOrder - b.sortOrder;
+      });
+    }
+
+    const sliced = items.slice(0, Math.min(Math.max(limit, 1), 50));
+    return sliced.map((item) => { item.requestedLanguage = language; return item; });
+  }
+
+  async getLearningPaths({ language = 'en' }) {
+    // Define the static learning paths
+    const pathsData = [
+      {
+        id: 'path-foundation',
+        titleEn: 'Garbh Sanskar Daily Foundation Path',
+        titleHi: 'गर्भ संस्कार दैनिक बुनियादी मार्ग',
+        descEn: 'Learn the primary daily principles of meditation, breathing, and baby bonding.',
+        descHi: 'ध्यान, श્वास और शिशु बंधन के प्राथमिक दैनिक सिद्धांतों को जानें।',
+        icon: '🌸',
+        slugs: ['five-comfortable-breaths', 'one-kind-message']
+      }
+    ];
+
+    // Fetch completion history for the user
+    const completedHistory = await this.models.ContentViewHistory.findAll({
+      where: { userId: this.viewer.id, completed: true },
+      attributes: ['contentItemId']
+    });
+    const completedIds = new Set(completedHistory.map(h => h.contentItemId).filter(Boolean));
+
+    const paths = [];
+
+    for (const path of pathsData) {
+      // Find content items in this path
+      const items = await this.models.ContentItem.findAll({
+        where: { slug: path.slugs },
+        include: this.includes()
+      });
+
+      // Map to correct language
+      items.forEach(item => { item.requestedLanguage = language; });
+
+      // Sort items according to slugs order
+      items.sort((a, b) => path.slugs.indexOf(a.slug) - path.slugs.indexOf(b.slug));
+
+      // Calculate progress
+      const completedInPath = items.filter(item => completedIds.has(item.id)).length;
+      const progressPercent = items.length > 0 ? Math.round((completedInPath / items.length) * 100) : 0;
+
+      paths.push({
+        id: path.id,
+        title: language === 'hi' ? path.titleHi : path.titleEn,
+        description: language === 'hi' ? path.descHi : path.descEn,
+        icon: path.icon,
+        progressPercent,
+        items
+      });
+    }
+
+    return paths;
+  }
+
+  async getContentPerformanceAnalytics() {
+    if (this.viewer.role?.roleType !== 'ADMIN' && this.viewer.role?.roleType !== 'STAFF') {
+      throw new GraphQLError('Unauthorized access', { extensions: { code: 'UNAUTHORIZED' } });
+    }
+
+    const items = await this.models.ContentItem.findAll({
+      include: this.includes()
+    });
+
+    const reports = [];
+
+    for (const item of items) {
+      const viewLogs = await this.models.ContentViewHistory.findAll({
+        where: { contentItemId: item.id }
+      });
+
+      const totalViews = viewLogs.reduce((sum, log) => sum + log.viewCount, 0);
+      const uniqueViewers = viewLogs.length;
+      const completionCount = viewLogs.filter(log => log.completed).length;
+
+      const completionRate = uniqueViewers > 0 ? parseFloat(((completionCount / uniqueViewers) * 100).toFixed(2)) : 0.0;
+      const totalProgress = viewLogs.reduce((sum, log) => sum + (log.progressPercent || 0), 0);
+      const avgProgress = uniqueViewers > 0 ? parseFloat((totalProgress / uniqueViewers).toFixed(2)) : 0.0;
+      const dropOffRate = uniqueViewers > 0 ? parseFloat((100 - completionRate).toFixed(2)) : 0.0;
+
+      const saveCount = await this.models.ContentBookmark.count({
+        where: { contentItemId: item.id }
+      });
+
+      const translation = item.translations?.find(t => t.language === 'en') || item.translations?.[0];
+
+      reports.push({
+        id: item.id,
+        slug: item.slug,
+        contentType: item.contentType,
+        title: translation?.title || item.slug,
+        totalViews,
+        uniqueViewers,
+        completionCount,
+        completionRate,
+        saveCount,
+        avgProgress,
+        dropOffRate
+      });
+    }
+
+    return reports.sort((a, b) => b.totalViews - a.totalViews);
   }
 }

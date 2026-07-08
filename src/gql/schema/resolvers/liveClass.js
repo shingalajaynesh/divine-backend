@@ -20,14 +20,26 @@ export const liveClassResolvers = {
 
   Query: {
     getLiveClasses: authenticate(async (parent, args, context) => {
+      const { Op } = context.models.Sequelize;
+      const where = {};
+      if (context.viewer) {
+        const isSuperAdmin = context.viewer.role?.roleType === 'SUPER_ADMIN';
+        if (!isSuperAdmin && context.viewer.centerId) {
+          where[Op.or] = [
+            { centerId: context.viewer.centerId },
+            { centerId: null }
+          ];
+        }
+      }
       return await context.models.LiveClass.findAll({
+        where,
         order: [['startTime', 'ASC']]
       });
     }),
 
     getLiveClassesDetailed: authenticate(async (parent, args, context) => {
       const service = new LiveClassService(context.models, context.sequelize);
-      return service.getLiveClasses(context.viewer.id);
+      return service.getLiveClasses(context.viewer.id, context.viewer);
     })
   },
 
@@ -50,12 +62,31 @@ export const liveClassResolvers = {
     }),
 
     updateLiveClassReplay: authenticate(async (parent, { liveClassId, replayUrl }, context) => {
-      // Check admin/staff authorization
       if (context.viewer.role?.roleType !== 'ADMIN' && context.viewer.role?.roleType !== 'STAFF') {
         throw new Error('Unauthorized');
       }
       const service = new LiveClassService(context.models, context.sequelize);
       return service.updateReplayUrl(liveClassId, replayUrl);
+    }),
+
+    createLiveClass: authenticate(async (parent, args, context) => {
+      const service = new LiveClassService(context.models, context.sequelize);
+      return service.createLiveClass(context.viewer, args);
+    }),
+
+    updateLiveClass: authenticate(async (parent, args, context) => {
+      const service = new LiveClassService(context.models, context.sequelize);
+      return service.updateLiveClass(context.viewer, args);
+    }),
+
+    deleteLiveClass: authenticate(async (parent, { id }, context) => {
+      const service = new LiveClassService(context.models, context.sequelize);
+      return service.deleteLiveClass(context.viewer, id);
+    }),
+
+    sendLiveClassReminder: authenticate(async (parent, { classId }, context) => {
+      const service = new LiveClassService(context.models, context.sequelize);
+      return service.sendLiveClassReminder(context.viewer, classId);
     })
   }
 };
