@@ -10,7 +10,11 @@ export const bookingResolvers = {
     },
     expert: async (parent, args, context) => {
       return parent.expert || await context.models.User.findByPk(parent.expertId);
-    }
+    },
+    intakeForm: (parent) => parent.intakeForm ? JSON.stringify(parent.intakeForm) : null,
+    prescriptions: (parent) => parent.prescriptions ? JSON.stringify(parent.prescriptions) : null,
+    documents: (parent) => parent.documents ? JSON.stringify(parent.documents) : null,
+    followUpDate: (parent) => parent.followUpDate ? parent.followUpDate.toString() : null
   },
   Query: {
     getExpertSchedules: authenticate(async (parent, args, context) => {
@@ -169,6 +173,11 @@ export const bookingResolvers = {
     submitCaseNotes: authenticate(async (parent, { input }, context) => {
       const service = new ConsultationService(context.models, context.sequelize);
       return service.submitCaseNotes(context.viewer.id, input);
+    }),
+
+    submitIntakeForm: authenticate(async (parent, args, context) => {
+      const service = new ConsultationService(context.models, context.sequelize);
+      return service.submitIntakeForm(context.viewer.id, args);
     }),
 
     createExpertSchedule: authenticate(async (parent, { dayOfWeek, startTime, endTime, slotDurationMins }, context) => {

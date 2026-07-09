@@ -168,10 +168,14 @@ export class ContentCmsManager extends BaseManager {
   async create(input) {
     this.validateInput(input);
     return this.models.ContentItem.sequelize.transaction(async (transaction) => {
+      const isAdmin = this.viewer.role?.roleType === 'ADMIN';
       const item = await this.models.ContentItem.create({
         centerId: this.viewer.centerId || null, categoryId: input.categoryId || null, coverAssetId: input.coverAssetId || null,
         createdBy: this.viewer.id, updatedBy: this.viewer.id, slug: input.slug, contentType: input.contentType,
-        visibility: input.visibility || 'free', status: 'draft', publishAt: input.publishAt || null, unpublishAt: input.unpublishAt || null,
+        visibility: input.visibility || 'free',
+        status: isAdmin ? 'approved' : 'draft',
+        medicalReviewed: isAdmin ? true : false,
+        publishAt: input.publishAt || null, unpublishAt: input.unpublishAt || null,
       }, { transaction });
       await this.models.ContentTranslation.bulkCreate(input.translations.map((translation) => ({ ...translation, title: translation.title.trim(), contentItemId: item.id })), { transaction, validate: true });
       return item.reload({ include: this.includes(), transaction });
@@ -283,7 +287,7 @@ export class ContentCmsManager extends BaseManager {
         trimester3Safe: input.trimester3Safe !== undefined ? input.trimester3Safe : item.trimester3Safe,
         contraindications: input.contraindications !== undefined ? input.contraindications : item.contraindications,
         medicalReviewed: input.medicalReviewed !== undefined ? input.medicalReviewed : item.medicalReviewed,
-        status: input.status ?? item.status,
+        status: input.medicalReviewed !== undefined ? (input.medicalReviewed ? (item.status === 'published' ? 'published' : 'approved') : 'draft') : (input.status ?? item.status),
         updatedBy: this.viewer.id,
       }, { transaction });
 

@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { v4 as uuidv4 } from 'uuid';
 
 export const logVitalsSchema = z.object({
   weight: z.number().optional(),
@@ -42,7 +43,7 @@ export class WellnessService {
   async logVitals(userId, input) {
     const data = logVitalsSchema.parse(input);
 
-    return this.models.VitalsLog.create({
+    const log = await this.models.VitalsLog.create({
       userId,
       weight: data.weight || null,
       systolicBp: data.systolicBp || null,
@@ -57,6 +58,49 @@ export class WellnessService {
       nutritionMealNotes: data.nutritionMealNotes || null,
       loggedAt: new Date()
     });
+
+    // Alert verification checks
+    const alerts = [];
+    if (data.systolicBp >= 140 || data.diastolicBp >= 90) {
+      alerts.push(`High Blood Pressure: ${data.systolicBp}/${data.diastolicBp} mmHg`);
+    }
+    if (data.kickCount !== undefined && data.kickCount !== null && data.kickCount < 10) {
+      alerts.push(`Low Fetal Movement: ${data.kickCount} kicks in 2h`);
+    }
+    if (data.bloodSugar >= 140) {
+      alerts.push(`High Blood Sugar: ${data.bloodSugar} mg/dL`);
+    }
+    const symptomsList = data.symptoms || [];
+    const severeSymptoms = symptomsList.filter(s => 
+      ['Bleeding', 'Swelling', 'Severe Headache', 'Blurred Vision', 'Severe Abdominal Pain'].includes(s)
+    );
+    if (severeSymptoms.length > 0) {
+      alerts.push(`Severe Symptoms: ${severeSymptoms.join(', ')}`);
+    }
+
+    if (alerts.length > 0) {
+      let userCenterId = null;
+      try {
+        const user = await this.models.User.findByPk(userId);
+        userCenterId = user?.centerId || null;
+      } catch (e) {
+        // Safe fallback
+      }
+
+      await this.models.Notification.create({
+        id: uuidv4(),
+        userId,
+        centerId: userCenterId,
+        kind: 'wellness_alert',
+        title: '🚨 Pregnancy Wellness Alert',
+        body: `Abnormal readings detected: ${alerts.join('. ')}. Please rest and contact your obstetrician immediately if symptoms persist.`,
+        status: 'unread',
+        createdAt: new Date(),
+        updatedAt: new Date()
+      });
+    }
+
+    return log;
   }
 
   async getVitals(userId) {

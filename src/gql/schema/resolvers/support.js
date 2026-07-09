@@ -10,6 +10,10 @@ export const supportResolvers = {
     createdAt: (parent) => {
       const d = typeof parent.createdAt === 'string' ? new Date(parent.createdAt) : parent.createdAt;
       return d.toISOString();
+    },
+    user: async (parent, args, context) => {
+      if (parent.user) return parent.user;
+      return await context.models.User.findByPk(parent.userId);
     }
   },
 
@@ -17,6 +21,10 @@ export const supportResolvers = {
     createdAt: (parent) => {
       const d = typeof parent.createdAt === 'string' ? new Date(parent.createdAt) : parent.createdAt;
       return d.toISOString();
+    },
+    sender: async (parent, args, context) => {
+      if (parent.sender) return parent.sender;
+      return await context.models.User.findByPk(parent.senderId);
     }
   },
 
@@ -29,6 +37,30 @@ export const supportResolvers = {
     getSupportTicketDetails: authenticate(async (parent, { id }, context) => {
       const service = new SupportService(context.models, context.sequelize);
       return service.getTicketDetails(context.viewer.id, id);
+    }),
+
+    getStaffSupportTickets: authenticate(async (parent, { status }, context) => {
+      const isStaff = ['STAFF', 'ADMIN', 'SUPER_ADMIN'].includes(context.viewer.role?.roleType);
+      if (!isStaff) throw new Error('Unauthorized');
+      
+      const service = new SupportService(context.models, context.sequelize);
+      return service.getStaffTickets(context.viewer, status);
+    }),
+
+    getCannedReplies: authenticate(async (parent, args, context) => {
+      const isStaff = ['STAFF', 'ADMIN', 'SUPER_ADMIN'].includes(context.viewer.role?.roleType);
+      if (!isStaff) throw new Error('Unauthorized');
+      
+      const service = new SupportService(context.models, context.sequelize);
+      return service.getCannedReplies();
+    }),
+
+    getSupportDashboardMetrics: authenticate(async (parent, args, context) => {
+      const isStaff = ['STAFF', 'ADMIN', 'SUPER_ADMIN'].includes(context.viewer.role?.roleType);
+      if (!isStaff) throw new Error('Unauthorized');
+      
+      const service = new SupportService(context.models, context.sequelize);
+      return service.getSupportDashboardMetrics(context.viewer);
     })
   },
 
@@ -51,6 +83,35 @@ export const supportResolvers = {
     requestWhatsappHandoff: authenticate(async (parent, { id }, context) => {
       const service = new SupportService(context.models, context.sequelize);
       return service.requestWhatsappHandoff(context.viewer.id, id);
+    }),
+
+    createCannedReply: authenticate(async (parent, args, context) => {
+      const isStaff = ['STAFF', 'ADMIN', 'SUPER_ADMIN'].includes(context.viewer.role?.roleType);
+      if (!isStaff) throw new Error('Unauthorized');
+      
+      const service = new SupportService(context.models, context.sequelize);
+      return service.createCannedReply(args);
+    }),
+
+    addStaffSupportMessage: authenticate(async (parent, { ticketId, message }, context) => {
+      const isStaff = ['STAFF', 'ADMIN', 'SUPER_ADMIN'].includes(context.viewer.role?.roleType);
+      if (!isStaff) throw new Error('Unauthorized');
+      
+      const service = new SupportService(context.models, context.sequelize);
+      return service.addMessage(context.viewer.id, { ticketId, message }, 'staff');
+    }),
+
+    updateSupportTicketStatus: authenticate(async (parent, { ticketId, status }, context) => {
+      const isStaff = ['STAFF', 'ADMIN', 'SUPER_ADMIN'].includes(context.viewer.role?.roleType);
+      if (!isStaff) throw new Error('Unauthorized');
+      
+      const service = new SupportService(context.models, context.sequelize);
+      return service.updateTicketStatus(ticketId, status);
+    }),
+
+    checkSlaEscalations: authenticate(async (parent, args, context) => {
+      const service = new SupportService(context.models, context.sequelize);
+      return service.checkSlaEscalations();
     })
   }
 };

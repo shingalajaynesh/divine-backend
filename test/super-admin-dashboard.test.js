@@ -29,6 +29,15 @@ test('Super Admin control tower GQL queries and mutations enforce role authoriza
   });
   assert.equal(resultMother.errors?.[0]?.message, 'Unauthorized');
 
+  const resultAdmin = await graphql({
+    schema,
+    source: getSuperAdminQuery,
+    contextValue: {
+      viewer: { id: 'admin-user-1', role: { roleType: 'ADMIN' } }
+    }
+  });
+  assert.equal(resultAdmin.errors?.[0]?.message, 'Unauthorized');
+
   // 2. Should succeed for super admin viewer context
   const mockModels = {
     User: {

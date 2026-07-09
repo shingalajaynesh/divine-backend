@@ -7,7 +7,7 @@ export const superAdminResolvers = {
       const { models } = context;
       const role = context.viewer.role?.roleType;
 
-      if (role !== 'SUPER_ADMIN' && role !== 'ADMIN') {
+      if (role !== 'SUPER_ADMIN') {
         throw new Error('Unauthorized');
       }
 
@@ -18,7 +18,7 @@ export const superAdminResolvers = {
       const { models } = context;
       const role = context.viewer.role?.roleType;
 
-      if (role !== 'SUPER_ADMIN' && role !== 'ADMIN') {
+      if (role !== 'SUPER_ADMIN') {
         throw new Error('Unauthorized');
       }
 
@@ -62,7 +62,7 @@ export const superAdminResolvers = {
       const { models } = context;
       const roleType = context.viewer.role?.roleType;
 
-      if (roleType !== 'SUPER_ADMIN' && roleType !== 'ADMIN') {
+      if (roleType !== 'SUPER_ADMIN') {
         throw new Error('Unauthorized');
       }
 
@@ -81,7 +81,7 @@ export const superAdminResolvers = {
       const { models } = context;
       const role = context.viewer.role?.roleType;
 
-      if (role !== 'SUPER_ADMIN' && role !== 'ADMIN') {
+      if (role !== 'SUPER_ADMIN') {
         throw new Error('Unauthorized');
       }
 

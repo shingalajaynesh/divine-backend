@@ -7,6 +7,12 @@ export const crmResolvers = {
       if (!parent.pregnancyStartDate) return null;
       const d = typeof parent.pregnancyStartDate === 'string' ? new Date(parent.pregnancyStartDate) : parent.pregnancyStartDate;
       return d.toISOString();
+    },
+    latestVitals: async (parent, args, context) => {
+      return await context.models.VitalsLog.findOne({
+        where: { userId: parent.id },
+        order: [['loggedAt', 'DESC']]
+      });
     }
   },
 

@@ -40,6 +40,30 @@ test('SubscriptionService manages plans, trials, coupons validation, and upgrade
         return { id: 'sub-1', ...input };
       }
     },
+    Payment: {
+      create: async (input) => {
+        return { id: 'payment-1', ...input };
+      }
+    },
+    Invoice: {
+      create: async (input) => {
+        return { id: 'invoice-1', ...input };
+      }
+    },
+    User: {
+      findByPk: async (id) => {
+        return {
+          id,
+          subscriptionStatus: 'free',
+          save: async function() {}
+        };
+      }
+    },
+    FinancialTransaction: {
+      create: async (input) => {
+        return { id: 'transaction-1', ...input };
+      }
+    },
     Coupon: {
       findOne: async ({ where }) => {
         if (where.code === VALID_COUPON_CODE) {

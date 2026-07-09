@@ -50,6 +50,16 @@ test('createRazorpayOrder creates a payment log and verify upgrades subscription
         return data;
       }
     },
+    Invoice: {
+      create: async (data) => {
+        return { id: 'invoice_1', ...data };
+      }
+    },
+    FinancialTransaction: {
+      create: async (data) => {
+        return { id: 'transaction_1', ...data };
+      }
+    },
     User: {
       findByPk: async (pk) => {
         if (pk === MEMBER_USER_ID) {

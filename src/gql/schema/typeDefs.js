@@ -73,12 +73,33 @@ export const typeDefs = `#graphql
     imageUrl: String
   }
 
+  type ForumGroup {
+    id: ID!
+    name: String!
+    description: String
+    coverUrl: String
+    isPrivate: Boolean!
+    posts: [ForumPost!]!
+    createdAt: String!
+  }
+
+  type ReactionStats {
+    type: String!
+    count: Int!
+  }
+
+  type ModerationQueue {
+    flaggedPosts: [ForumPost!]!
+    flaggedComments: [ForumComment!]!
+  }
+
   type ForumComment {
     id: ID!
     user: User!
     content: String!
     reported: Boolean!
     reportsCount: Int!
+    reportedReason: String
     createdAt: String!
   }
 
@@ -93,6 +114,11 @@ export const typeDefs = `#graphql
     isLiked: Boolean!
     reported: Boolean!
     reportsCount: Int!
+    reportedReason: String
+    group: ForumGroup
+    reactionsCount: Int!
+    reactionStats: [ReactionStats!]!
+    userReaction: String
     comments: [ForumComment!]!
     createdAt: String!
   }
@@ -275,12 +301,80 @@ export const typeDefs = `#graphql
     status: String!
     caseNotes: String
     followUpTasks: String
+    intakeForm: String
+    prescriptions: String
+    documents: String
+    followUpDate: String
   }
 
   input SubmitCaseNotesInput {
     bookingId: ID!
     caseNotes: String!
     followUpTasks: [String!]
+    prescriptions: String
+    followUpDate: String
+    documents: String
+  }
+
+  type CounselingLead {
+    id: ID!
+    name: String!
+    email: String
+    phone: String!
+    status: String!
+    source: String!
+    assignedTo: ID
+    convertedUserId: ID
+    nextFollowUp: String
+    convertedAt: String
+    createdAt: String!
+    counselor: User
+    convertedUser: User
+    calls: [CounselingCall!]!
+  }
+
+  type CounselingCall {
+    id: ID!
+    leadId: ID!
+    scheduledAt: String!
+    status: String!
+    durationMinutes: Int
+    outcome: String
+    notes: String
+    counselorId: ID!
+    createdAt: String!
+    counselor: User
+  }
+
+  type CounselingDashboardStats {
+    totalLeadsCount: Int!
+    newLeadsCount: Int!
+    contactedLeadsCount: Int!
+    scheduledLeadsCount: Int!
+    convertedLeadsCount: Int!
+    lostLeadsCount: Int!
+    conversionRate: Float!
+  }
+
+  type CannedReply {
+    id: ID!
+    title: String!
+    content: String!
+    category: String!
+  }
+
+  type SatisfactionScoreDist {
+    score: Int!
+    count: Int!
+  }
+
+  type SupportDashboardMetrics {
+    totalTicketsCount: Int!
+    resolvedTicketsCount: Int!
+    pendingTicketsCount: Int!
+    slaBreachedCount: Int!
+    averageSatisfactionScore: Float
+    satisfactionDistribution: [SatisfactionScoreDist!]!
   }
 
   type SupportTicket {
@@ -296,6 +390,7 @@ export const typeDefs = `#graphql
     slaBreached: Boolean!
     slaExpiresAt: String!
     createdAt: String!
+    user: User
     messages: [SupportTicketMessage!]!
   }
 
@@ -335,6 +430,8 @@ export const typeDefs = `#graphql
     imageUrl: String
     inventoryCount: Int!
     category: String!
+    centerId: ID
+    center: Center
   }
 
   type CartItem {
@@ -417,6 +514,162 @@ export const typeDefs = `#graphql
     plan: SubscriptionPlan
   }
 
+  type Invoice {
+    id: ID!
+    userId: ID!
+    subscriptionId: ID
+    paymentId: ID
+    amount: Float!
+    status: String!
+    invoiceNumber: String!
+    billingDate: String!
+    dueDate: String!
+    user: User
+    subscription: UserSubscription
+    payment: Payment
+    createdAt: String!
+    updatedAt: String!
+  }
+
+  type ReportTemplate {
+    id: ID!
+    title: String!
+    description: String
+    role: String!
+    filters: String
+    widgets: String!
+    sharedWithRoles: String
+    createdAt: String!
+    updatedAt: String!
+  }
+
+  type ReportData {
+    templateId: ID!
+    metrics: String!
+  }
+
+  type ReportSchedule {
+    id: ID!
+    templateId: ID!
+    frequency: String!
+    recipientEmails: String!
+    nextRunAt: String!
+    isActive: Boolean!
+    template: ReportTemplate
+    createdAt: String!
+  }
+
+  type SystemSetting {
+    id: ID!
+    key: String!
+    value: String!
+    description: String
+    updatedAt: String!
+  }
+
+  type FeatureFlag {
+    id: ID!
+    name: String!
+    description: String
+    isEnabled: Boolean!
+    rules: String
+    updatedAt: String!
+  }
+
+  type LocaleString {
+    id: ID!
+    lang: String!
+    key: String!
+    value: String!
+    updatedAt: String!
+  }
+
+  type ServerDiagnostics {
+    cpuLoad: Float!
+    freeMem: Float!
+    totalMem: Float!
+    processMemory: Float!
+    uptimeSeconds: Int!
+    activeDbConnections: Int!
+    errorCount: Int!
+  }
+
+  type SystemMetric {
+    id: ID!
+    metricType: String!
+    value: Float!
+    timestamp: String!
+  }
+
+  type SlowQueryRecord {
+    id: ID!
+    sqlQuery: String!
+    durationMs: Float!
+    thresholdMs: Float!
+    timestamp: String!
+  }
+
+  type IndexDiagnosticReport {
+    table: String!
+    field: String!
+    status: String!
+    recommendation: String!
+  }
+
+  type DatabaseClusterStatus {
+    primaryNodeHealthy: Boolean!
+    replicaLagMs: Int!
+    activeConnections: Int!
+    maxPoolSize: Int!
+    idleConnections: Int!
+  }
+
+  type EnvironmentStatus {
+    releaseVersion: String!
+    envMode: String!
+    nodeVersion: String!
+    platform: String!
+  }
+
+  type DatabaseBackup {
+    id: ID!
+    fileName: String!
+    backupSize: Float!
+    status: String!
+    timestamp: String!
+  }
+
+  type FinancialReport {
+    totalRevenue: Float!
+    totalRefunds: Float!
+    netRevenue: Float!
+    totalCenterShare: Float!
+    totalPlatformShare: Float!
+    transactionCount: Int!
+    reconciledCount: Int!
+  }
+
+  type FinancialTransaction {
+    id: ID!
+    userId: ID
+    centerId: ID
+    amount: Float!
+    type: String!
+    status: String!
+    centerShare: Float!
+    platformShare: Float!
+    paymentId: ID
+    invoiceId: ID
+    reconciledAt: String
+    reconciliationNotes: String
+    user: User
+    center: Center
+    payment: Payment
+    invoice: Invoice
+    createdAt: String!
+    updatedAt: String!
+  }
+
   type Coupon {
     id: ID!
     code: String!
@@ -436,6 +689,7 @@ export const typeDefs = `#graphql
     pregnancyStartDate: String
     pregnancyDay: Int
     role: Role
+    latestVitals: VitalsLog
     subscriptions: [UserSubscription!]!
   }
 
@@ -657,11 +911,119 @@ export const typeDefs = `#graphql
   }
   type Notification { id: ID!, kind: String!, title: String!, body: String!, actionUrl: String, status: String!, readAt: String, scheduledAt: String, expiresAt: String, createdAt: String! }
   type NotificationInbox { items: [Notification!]!, unreadCount: Int! }
+  
+  type NotificationDelivery {
+    id: ID!
+    notificationId: ID!
+    channel: String!
+    status: String!
+    attempts: Int!
+    providerMessageId: String
+    lastAttemptAt: String
+    errorCode: String
+    errorMessage: String
+    createdAt: String!
+    notification: Notification
+  }
+
+  type CampaignPerformanceStats {
+    totalTargeted: Int!
+    deliveredCount: Int!
+    failedCount: Int!
+    pendingCount: Int!
+    channelBreakdown: [ChannelStatPoint!]!
+  }
+
+  type ChannelStatPoint {
+    channel: String!
+    sent: Int!
+    delivered: Int!
+    failed: Int!
+  }
+
+  type ReminderRule {
+    id: ID!
+    name: String!
+    ruleType: String!
+    triggerCondition: String!
+    templateTitle: String!
+    templateBody: String!
+    channels: [String!]!
+    enabled: Boolean!
+    createdAt: String!
+  }
+
+  type ReminderRulesEngineReport {
+    success: Boolean!
+    rulesProcessed: Int!
+    notificationsDispatched: Int!
+  }
+
   type NotificationPreference { id: ID!, pushEnabled: Boolean!, emailEnabled: Boolean!, whatsappEnabled: Boolean!, marketingAllowed: Boolean!, quietStart: String, quietEnd: String, timezone: String! }
   type ReminderSchedule { id: ID!, reminderType: String!, label: String!, localTime: String!, daysOfWeek: [Int!]!, channel: String!, enabled: Boolean! }
   input NotificationPreferenceInput { pushEnabled: Boolean, emailEnabled: Boolean, whatsappEnabled: Boolean, marketingAllowed: Boolean, quietStart: String, quietEnd: String, timezone: String }
   input ReminderScheduleInput { id: ID, reminderType: String, label: String!, localTime: String!, daysOfWeek: [Int!]!, channel: String, enabled: Boolean }
   
+  type SpecialEvent {
+    id: ID!
+    title: String!
+    description: String!
+    eventType: String!
+    eventDate: String!
+    durationMinutes: Int!
+    speakerName: String
+    location: String
+    maxRegistrations: Int
+    replayUrl: String
+    createdAt: String!
+  }
+
+  type EventRegistration {
+    id: ID!
+    eventId: ID!
+    userId: ID!
+    registeredAt: String!
+    checkedIn: Boolean!
+    checkedInAt: String
+    feedbackRating: Int
+    feedbackText: String
+    user: CrmUser
+    event: SpecialEvent
+  }
+
+  type UserReferral {
+    id: ID!
+    referrerId: ID!
+    refereeName: String!
+    refereeEmail: String
+    refereePhone: String!
+    status: String!
+    rewardPoints: Int!
+    createdAt: String!
+    referrer: CrmUser
+  }
+
+  type Testimonial {
+    id: ID!
+    userId: ID!
+    content: String!
+    rating: Int!
+    status: String!
+    approvedBy: ID
+    createdAt: String!
+    user: CrmUser
+  }
+
+  type AmbassadorApplication {
+    id: ID!
+    userId: ID!
+    socialLinks: String!
+    reason: String!
+    status: String!
+    createdAt: String!
+    user: CrmUser
+  }
+
   type ReminderDispatchReport {
     success: Boolean!
     remindersSent: Int!
@@ -990,7 +1352,9 @@ export const typeDefs = `#graphql
     getDailyContent(dayNumber: Int!): DailyContent
     getContentLibrary(category: String!): [DailyContent!]!
     getBabyDevelopment(weekNumber: Int!): BabyDevelopment
-    getForumPosts(category: String): [ForumPost!]!
+    getForumPosts(category: String, groupId: ID): [ForumPost!]!
+    getForumGroups: [ForumGroup!]!
+    getModerationQueue: ModerationQueue!
     getLiveClasses: [LiveClass!]!
     getGuidedAudioSessions: [DailyContent!]!
     getMyDevices: [RegisteredDevice!]!
@@ -1044,7 +1408,13 @@ export const typeDefs = `#graphql
     getHospitalBagItems: [HospitalBagItem!]!
     getSupportTickets: [SupportTicket!]!
     getSupportTicketDetails(id: ID!): SupportTicket
-    getProducts: [Product!]!
+    getStaffSupportTickets(status: String): [SupportTicket!]!
+    getCannedReplies: [CannedReply!]!
+    getSupportDashboardMetrics: SupportDashboardMetrics!
+    getCounselingLeads(status: String, assignedToMe: Boolean): [CounselingLead!]!
+    getCounselingLeadDetails(id: ID!): CounselingLead!
+    getCounselingDashboardStats: CounselingDashboardStats!
+    getProducts(centerId: ID): [Product!]!
     getCart: [CartItem!]!
     getAddresses: [UserAddress!]!
     getMyOrders: [StoreOrder!]!
@@ -1052,6 +1422,27 @@ export const typeDefs = `#graphql
     getPlans: [SubscriptionPlan!]!
     getMySubscription: UserSubscription
     validateCoupon(code: String!): Coupon
+    getAdminInvoices: [Invoice!]!
+    getMyInvoices: [Invoice!]!
+    checkUserEntitlement(featureKey: String!): Boolean!
+    getCoupons: [Coupon!]!
+    getFinancialReport(startDate: String, endDate: String, centerId: ID): FinancialReport!
+    getFinancialTransactions(centerId: ID, type: String): [FinancialTransaction!]!
+    getReportTemplates(role: String): [ReportTemplate!]!
+    getReportData(templateId: ID!, filters: String): ReportData!
+    getReportSchedules: [ReportSchedule!]!
+    getSystemSettings: [SystemSetting!]!
+    getFeatureFlags: [FeatureFlag!]!
+    getLocaleStrings(lang: String!): [LocaleString!]!
+    checkFeatureFlag(name: String!): Boolean!
+    getServerDiagnostics: ServerDiagnostics!
+    getSystemMetricsHistory(metricType: String!): [SystemMetric!]!
+    exportSystemLogs(limit: Int): String!
+    getSlowQueriesReport(thresholdMs: Float): [SlowQueryRecord!]!
+    runDatabaseIndexDiagnostic: [IndexDiagnosticReport!]!
+    getDatabaseClusterStatus: DatabaseClusterStatus!
+    getEnvironmentStatus: EnvironmentStatus!
+    getBackupHistory: [DatabaseBackup!]!
     getCrmUsers: [CrmUser!]!
     getCrmNotes(userId: ID!): [CrmNote!]!
     getAuditLogs: [AdminAuditLog!]!
@@ -1059,17 +1450,35 @@ export const typeDefs = `#graphql
     getLiveClassBookings(classId: ID!): [LiveClassBooking!]!
     getStaffTasks: [StaffTask!]!
     getContentPerformanceAnalytics: [ContentPerformanceReport!]!
+    getNotificationDeliveriesReport(limit: Int): [NotificationDelivery!]!
+    getCampaignPerformance(notificationId: ID!): CampaignPerformanceStats!
+    getReminderRules: [ReminderRule!]!
+    getSpecialEvents(eventType: String): [SpecialEvent!]!
+    getEventAttendees(eventId: ID!): [EventRegistration!]!
+    getMyReferrals: [UserReferral!]!
+    getReferralsReport: [UserReferral!]!
+    getTestimonials(statusFilter: String): [Testimonial!]!
+    getAmbassadorApplications: [AmbassadorApplication!]!
   }
 
   type Mutation {
     syncUser: User!
     updateUser(id: ID!, firstName: String, lastName: String, displayName: String, mobileNo: String): User!
     saveOnboarding(lmpDate: String, dueDate: String, language: String!): User!
-    addForumPost(title: String!, content: String!, category: String): ForumPost!
+    clearSlowQueryLogs: Boolean!
+    updateConnectionPoolConfig(maxConnections: Int!, idleTimeoutMs: Int!): Boolean!
+    triggerFailoverSimulation: Boolean!
+    triggerBackupDrill: DatabaseBackup!
+    triggerRestoreDrill(backupId: ID!): Boolean!
+    addForumPost(title: String!, content: String!, category: String, groupId: ID): ForumPost!
     addForumComment(postId: ID!, content: String!): ForumComment!
     togglePostLike(postId: ID!): ForumPost!
-    reportPost(postId: ID!): ForumPost!
-    reportComment(commentId: ID!): ForumComment!
+    reportPost(postId: ID!, reason: String): ForumPost!
+    reportComment(commentId: ID!, reason: String): ForumComment!
+    createForumGroup(name: String!, description: String, coverUrl: String, isPrivate: Boolean!): ForumGroup!
+    reactToPost(postId: ID!, reactionType: String!): ForumPost!
+    moderatePost(postId: ID!, action: String!): Boolean!
+    moderateComment(commentId: ID!, action: String!): Boolean!
     bookLiveClass(classId: ID!): LiveClass!
     createStripeCheckout(plan: String!): String!
     adminAddContent(
@@ -1153,6 +1562,7 @@ export const typeDefs = `#graphql
     submitLiveClassFeedback(input: SubmitLiveClassFeedbackInput!): LiveClassBooking!
     updateLiveClassReplay(liveClassId: ID!, replayUrl: String!): LiveClass!
     submitCaseNotes(input: SubmitCaseNotesInput!): ConsultationBooking!
+    submitIntakeForm(bookingId: ID!, symptoms: [String!]!, gestationalWeeks: Int!, concerns: String!, medicalHistory: String): ConsultationBooking!
     logVitalsAndSymptoms(input: LogVitalsAndSymptomsInput!): VitalsLog!
     addAppointment(input: AddAppointmentInput!): Appointment!
     deleteAppointment(id: ID!): Boolean!
@@ -1166,6 +1576,16 @@ export const typeDefs = `#graphql
     addSupportTicketMessage(input: AddSupportTicketMessageInput!): SupportTicketMessage!
     closeSupportTicket(input: CloseSupportTicketInput!): SupportTicket!
     requestWhatsappHandoff(id: ID!): SupportTicket!
+    createCannedReply(title: String!, content: String!, category: String!): CannedReply!
+    addStaffSupportMessage(ticketId: ID!, message: String!): SupportTicketMessage!
+    updateSupportTicketStatus(ticketId: ID!, status: String!): SupportTicket!
+    checkSlaEscalations: Boolean!
+    createCounselingLead(name: String!, email: String, phone: String!, source: String): CounselingLead!
+    updateCounselingLeadStatus(id: ID!, status: String!): CounselingLead!
+    assignCounselingLead(id: ID!, counselorId: ID!): CounselingLead!
+    scheduleCounselingCall(leadId: ID!, scheduledAt: String!): CounselingCall!
+    logCounselingCallOutcome(callId: ID!, status: String!, durationMinutes: Int, outcome: String, notes: String): CounselingCall!
+    convertLeadToMember(leadId: ID!, centerId: ID!): User!
     addToCart(input: CartItemInput!): CartItem!
     updateCartQuantity(input: CartItemInput!): CartItem!
     removeFromCart(productId: ID!): Boolean!
@@ -1199,5 +1619,43 @@ export const typeDefs = `#graphql
     submitCoachingFeedback(progressId: ID!, quotient: String!, feedback: String!): DailyProgress!
     assignPartnerTask(dayNumber: Int!, title: String!, description: String): PartnerActivityLog!
     submitPartnerResponse(dayNumber: Int!, response: String!, familyNotes: String): PartnerActivityLog!
+    createNotificationCampaign(title: String!, body: String!, channels: [String!]!, targetUserIds: [ID!], centerId: ID, scheduledAt: String): [Notification!]!
+    triggerCampaignDispatched(notificationId: ID!): Boolean!
+    createReminderRule(name: String!, ruleType: String!, triggerConditionJson: String!, templateTitle: String!, templateBody: String!, channels: [String!]!, enabled: Boolean): ReminderRule!
+    updateReminderRule(id: ID!, name: String, ruleType: String, triggerConditionJson: String, templateTitle: String, templateBody: String, channels: [String!], enabled: Boolean): ReminderRule!
+    deleteReminderRule(id: ID!): Boolean!
+    runReminderRulesEngine: ReminderRulesEngineReport!
+    createSpecialEvent(title: String!, description: String!, eventType: String!, eventDate: String!, durationMinutes: Int!, speakerName: String, location: String, maxRegistrations: Int): SpecialEvent!
+    updateSpecialEvent(id: ID!, title: String, description: String, eventType: String, eventDate: String, durationMinutes: Int, speakerName: String, location: String, maxRegistrations: Int, replayUrl: String): SpecialEvent!
+    deleteSpecialEvent(id: ID!): Boolean!
+    registerForEvent(eventId: ID!): EventRegistration!
+    checkInToEvent(registrationId: ID!): EventRegistration!
+    submitEventFeedback(eventId: ID!, rating: Int!, feedbackText: String): EventRegistration!
+    submitReferral(refereeName: String!, refereeEmail: String, refereePhone: String!): UserReferral!
+    convertReferral(referralId: ID!, pointsAwarded: Int): UserReferral!
+    submitTestimonial(content: String!, rating: Int!): Testimonial!
+    moderateTestimonial(id: ID!, status: String!): Testimonial!
+    applyForAmbassador(socialLinksJson: String!, reason: String!): AmbassadorApplication!
+    moderateAmbassadorApplication(id: ID!, status: String!): AmbassadorApplication!
+    createProduct(title: String!, description: String, price: Float!, imageUrl: String, inventoryCount: Int!, category: String!, centerId: ID): Product!
+    updateProduct(id: ID!, title: String, description: String, price: Float, imageUrl: String, inventoryCount: Int, category: String, centerId: ID): Product!
+    deleteProduct(id: ID!): Boolean!
+    createSubscriptionPlan(name: String!, description: String, price: Float!, billingPeriod: String!, trialDays: Int!, features: [String!]!): SubscriptionPlan!
+    updateSubscriptionPlan(id: ID!, name: String, description: String, price: Float, billingPeriod: String, trialDays: Int, features: [String!]): SubscriptionPlan!
+    deleteSubscriptionPlan(id: ID!): Boolean!
+    createCoupon(code: String!, discountPercent: Int, discountAmount: Float, validFrom: String!, validUntil: String!, maxRedemptions: Int): Coupon!
+    deleteCoupon(id: ID!): Boolean!
+    simulateRenewals: [UserSubscription!]!
+    reconcileTransaction(transactionId: ID!, notes: String): FinancialTransaction!
+    refundTransaction(paymentId: ID!, refundAmount: Float!, reason: String!): FinancialTransaction!
+    createReportTemplate(title: String!, description: String, role: String!, filters: String, widgets: String!): ReportTemplate!
+    deleteReportTemplate(id: ID!): Boolean!
+    shareReportTemplate(templateId: ID!, roles: String!): ReportTemplate!
+    createReportSchedule(templateId: ID!, frequency: String!, recipientEmails: String!): ReportSchedule!
+    deleteReportSchedule(id: ID!): Boolean!
+    processScheduledReports: String!
+    updateSystemSetting(key: String!, value: String!): SystemSetting!
+    updateFeatureFlag(name: String!, isEnabled: Boolean!, rules: String): FeatureFlag!
+    upsertLocaleString(lang: String!, key: String!, value: String!): LocaleString!
   }
 `;

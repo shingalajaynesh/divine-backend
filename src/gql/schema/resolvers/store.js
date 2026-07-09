@@ -2,6 +2,14 @@ import { authenticate } from '../permissions/index.js';
 import { StoreService } from '../../../modules/store/store.service.js';
 
 export const storeResolvers = {
+  Product: {
+    center: async (parent, args, context) => {
+      if (parent.center) return parent.center;
+      if (!parent.centerId) return null;
+      return await context.models.Center.findByPk(parent.centerId);
+    }
+  },
+
   StoreOrder: {
     createdAt: (parent) => {
       const d = typeof parent.createdAt === 'string' ? new Date(parent.createdAt) : parent.createdAt;
@@ -36,9 +44,9 @@ export const storeResolvers = {
   },
 
   Query: {
-    getProducts: authenticate(async (parent, args, context) => {
+    getProducts: authenticate(async (parent, { centerId }, context) => {
       const service = new StoreService(context.models, context.sequelize);
-      return service.getProducts();
+      return service.getProducts(centerId);
     }),
 
     getCart: authenticate(async (parent, args, context) => {
@@ -124,6 +132,21 @@ export const storeResolvers = {
       }
       const service = new StoreService(context.models, context.sequelize);
       return service.reviewOrderReturn(orderReturnId, status, adminNotes);
+    }),
+
+    createProduct: authenticate(async (parent, args, context) => {
+      const service = new StoreService(context.models, context.sequelize);
+      return service.createProduct(context.viewer, args);
+    }),
+
+    updateProduct: authenticate(async (parent, { id, ...args }, context) => {
+      const service = new StoreService(context.models, context.sequelize);
+      return service.updateProduct(context.viewer, id, args);
+    }),
+
+    deleteProduct: authenticate(async (parent, { id }, context) => {
+      const service = new StoreService(context.models, context.sequelize);
+      return service.deleteProduct(context.viewer, id);
     })
   }
 };

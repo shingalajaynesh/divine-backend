@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { v4 as uuidv4 } from 'uuid';
 
 export const addAddressSchema = z.object({
   fullName: z.string().min(2).max(100),
@@ -22,8 +23,23 @@ export class StoreService {
   }
 
   // 1. Products Catalog
-  async getProducts() {
+  async getProducts(centerId) {
+    const where = {};
+    if (centerId) {
+      where[this.models.Sequelize.Op.or] = [
+        { centerId: null },
+        { centerId }
+      ];
+    }
     return this.models.Product.findAll({
+      where,
+      include: [
+        {
+          model: this.models.Center,
+          as: 'center',
+          attributes: ['id', 'name']
+        }
+      ],
       order: [['title', 'ASC']]
     });
   }
@@ -285,5 +301,64 @@ export class StoreService {
     }
 
     return ret;
+  }
+
+  // 5. Product CRUD for Staff/Admin
+  async createProduct(viewer, input) {
+    if (viewer.role?.roleType !== 'ADMIN' && viewer.role?.roleType !== 'STAFF') {
+      throw new Error('Unauthorized access');
+    }
+    const { title, description, price, imageUrl, inventoryCount, category, centerId } = input;
+    if (!title || !title.trim()) throw new Error('Product title is required');
+    if (price < 0) throw new Error('Price cannot be negative');
+    if (inventoryCount < 0) throw new Error('Inventory count cannot be negative');
+
+    return this.models.Product.create({
+      id: uuidv4(),
+      title: title.trim(),
+      description: description?.trim() || null,
+      price,
+      imageUrl: imageUrl?.trim() || null,
+      inventoryCount,
+      category,
+      centerId: centerId || null
+    });
+  }
+
+  async updateProduct(viewer, id, input) {
+    if (viewer.role?.roleType !== 'ADMIN' && viewer.role?.roleType !== 'STAFF') {
+      throw new Error('Unauthorized access');
+    }
+    const product = await this.models.Product.findByPk(id);
+    if (!product) throw new Error('Product not found');
+
+    const { title, description, price, imageUrl, inventoryCount, category, centerId } = input;
+    const updates = {};
+    if (title !== undefined) updates.title = title.trim();
+    if (description !== undefined) updates.description = description?.trim() || null;
+    if (price !== undefined) {
+      if (price < 0) throw new Error('Price cannot be negative');
+      updates.price = price;
+    }
+    if (imageUrl !== undefined) updates.imageUrl = imageUrl?.trim() || null;
+    if (inventoryCount !== undefined) {
+      if (inventoryCount < 0) throw new Error('Inventory count cannot be negative');
+      updates.inventoryCount = inventoryCount;
+    }
+    if (category !== undefined) updates.category = category;
+    if (centerId !== undefined) updates.centerId = centerId || null;
+
+    return product.update(updates);
+  }
+
+  async deleteProduct(viewer, id) {
+    if (viewer.role?.roleType !== 'ADMIN' && viewer.role?.roleType !== 'STAFF') {
+      throw new Error('Unauthorized access');
+    }
+    const product = await this.models.Product.findByPk(id);
+    if (!product) throw new Error('Product not found');
+
+    await product.destroy();
+    return true;
   }
 }
