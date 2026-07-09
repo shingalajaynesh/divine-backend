@@ -5,6 +5,7 @@
   "type": "module",
   "scripts": {
     "start": "node src/index.js",
+    "start:prod": "node src/scripts/start-prod.js",
     "dev": "nodemon src/index.js",
     "test": "node --test",
     "db:migrate": "sequelize-cli db:migrate",
