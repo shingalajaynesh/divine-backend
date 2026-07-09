@@ -127,9 +127,16 @@ const createContext = async ({ req, res }) => {
           if (deviceCheck.reason !== 'Device whitelisting disabled' && !isDeviceOp) {
             throw new Error(`Device unauthorized: ${deviceCheck.reason}`);
           }
-        } else if (deviceInfo.deviceId) {
+        } else if (deviceInfo.deviceId && !isDeviceOp) {
           // Register/update device
-          await deviceManager.registerDevice(viewer.id, deviceInfo);
+          try {
+            await deviceManager.registerDevice(viewer.id, deviceInfo);
+          } catch (e) {
+            if (e.message.includes('Maximum concurrent device limit reached')) {
+              throw new Error(`Device unauthorized: ${e.message}`);
+            }
+            throw e;
+          }
         }
 
         // 5. Validate User Session
