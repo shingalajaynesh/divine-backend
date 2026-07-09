@@ -116,7 +116,8 @@ const createContext = async ({ req, res }) => {
           ipAddress: req.ip || req.connection.remoteAddress || '',
         }, 'web');
 
-        // 4. Validate device whitelisting
+        // 4. Validate device whitelisting (TEMPORARILY DISABLED)
+        /*
         const isDeviceOp = req.body?.query?.includes('registerDevice') || 
                            req.body?.query?.includes('deauthorizeDevice') || 
                            req.body?.query?.includes('getMyDevices');
@@ -138,6 +139,7 @@ const createContext = async ({ req, res }) => {
             throw e;
           }
         }
+        */
 
         // 5. Validate User Session
         if (sid) {
