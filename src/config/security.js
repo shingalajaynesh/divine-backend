@@ -29,17 +29,28 @@ export const assertSecureConfiguration = () => {
     if (!process.env.RAZORPAY_KEY_ID || !process.env.RAZORPAY_KEY_SECRET) {
       throw new Error('RAZORPAY_KEY_ID and RAZORPAY_KEY_SECRET are required in production.');
     }
-    if (!process.env.RAZORPAY_WEBHOOK_SECRET) {
-      throw new Error('RAZORPAY_WEBHOOK_SECRET is required in production.');
-    }
     if (process.env.RAZORPAY_KEY_ID === 'mock_key_id' || process.env.RAZORPAY_KEY_SECRET === 'mock_key_secret') {
       throw new Error('Mock Razorpay credentials are not allowed in production.');
     }
 
-    if (!process.env.WP_FALLBACK_ACCESS_TOKEN || !process.env.WP_FALLBACK_PHONE_NUMBER_ID) {
-      throw new Error('WP_FALLBACK_ACCESS_TOKEN and WP_FALLBACK_PHONE_NUMBER_ID are required in production.');
+    // RAZORPAY_WEBHOOK_SECRET is required for webhook signature verification.
+    // Warn on startup if missing — payment webhooks will be rejected until this is set.
+    if (!process.env.RAZORPAY_WEBHOOK_SECRET) {
+      console.warn(
+        '[SECURITY WARNING] RAZORPAY_WEBHOOK_SECRET is not set. ' +
+        'Incoming Razorpay webhook events will not be verified and will be rejected. ' +
+        'Add this secret from your Razorpay Dashboard → Webhooks.'
+      );
     }
-    if (process.env.WP_FALLBACK_ACCESS_TOKEN === 'EAA...' || process.env.WP_FALLBACK_PHONE_NUMBER_ID === '123456') {
+
+    // WhatsApp credentials are optional until messaging is activated.
+    // Warn on startup if missing — WhatsApp notifications will be silently skipped.
+    if (!process.env.WP_FALLBACK_ACCESS_TOKEN || !process.env.WP_FALLBACK_PHONE_NUMBER_ID) {
+      console.warn(
+        '[SECURITY WARNING] WP_FALLBACK_ACCESS_TOKEN or WP_FALLBACK_PHONE_NUMBER_ID is not set. ' +
+        'WhatsApp notification delivery will be disabled until these are configured.'
+      );
+    } else if (process.env.WP_FALLBACK_ACCESS_TOKEN === 'EAA...' || process.env.WP_FALLBACK_PHONE_NUMBER_ID === '123456') {
       throw new Error('Mock WhatsApp provider credentials are not allowed in production.');
     }
 
