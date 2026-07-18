@@ -21,6 +21,7 @@ services:
     ports:
       - "4000:4000" # Expose Apollo GraphQL server on port 4000
     environment:
+      - NODE_ENV=${NODE_ENV:-development}
       - PORT=4000
       - DATABASE_URL=${DATABASE_URL:-}
       - DB_NAME=${DB_NAME:-divine_garbh_sanskar}
@@ -41,6 +42,12 @@ services:
       - CLOUDINARY_CLOUD_NAME=${CLOUDINARY_CLOUD_NAME:-}
       - CLOUDINARY_API_KEY=${CLOUDINARY_API_KEY:-}
       - CLOUDINARY_API_SECRET=${CLOUDINARY_API_SECRET:-}
+      - RAZORPAY_KEY_ID=${RAZORPAY_KEY_ID:-}
+      - RAZORPAY_KEY_SECRET=${RAZORPAY_KEY_SECRET:-}
+      - WP_FALLBACK_ACCESS_TOKEN=${WP_FALLBACK_ACCESS_TOKEN:-}
+      - WP_FALLBACK_PHONE_NUMBER_ID=${WP_FALLBACK_PHONE_NUMBER_ID:-}
+      - WP_TEMPLATE_DAILY_HI=${WP_TEMPLATE_DAILY_HI:-daily_update_hi}
+      - WP_TEMPLATE_DAILY_EN=${WP_TEMPLATE_DAILY_EN:-daily_update_en}
     depends_on:
       - postgres
 

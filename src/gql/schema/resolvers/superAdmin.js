@@ -24,7 +24,14 @@ export const superAdminResolvers = {
 
       const totalUsersCount = await models.User.count({ where: { isActive: true } });
       const totalCentersCount = await models.Center.count();
-      const systemStatus = "HEALTHY";
+      
+      let systemStatus = "UNKNOWN - Telemetry not configured";
+      try {
+        await context.sequelize.authenticate();
+        systemStatus = "DATABASE_CONNECTED";
+      } catch (err) {
+        systemStatus = `DATABASE_ERROR: ${err.message}`;
+      }
 
       const now = new Date();
       const activeAlertsCount = await models.SupportTicket.count({

@@ -24,7 +24,17 @@ const devConfig = process.env.DATABASE_URL
     };
 
 const prodConfig = process.env.DATABASE_URL
-  ? { ...baseConfig, use_env_variable: 'DATABASE_URL', logging: false }
+  ? {
+      ...baseConfig,
+      use_env_variable: 'DATABASE_URL',
+      logging: false,
+      dialectOptions: {
+        ssl: process.env.DB_SSL === 'false' ? false : {
+          require: true,
+          rejectUnauthorized: false
+        }
+      }
+    }
   : {
       ...baseConfig,
       username: process.env.DB_USER,
@@ -33,6 +43,12 @@ const prodConfig = process.env.DATABASE_URL
       host: process.env.DB_HOST,
       port: parseInt(process.env.DB_PORT, 10) || 5432,
       logging: false,
+      dialectOptions: {
+        ssl: process.env.DB_SSL === 'false' ? false : {
+          require: true,
+          rejectUnauthorized: false
+        }
+      }
     };
 
 module.exports = {

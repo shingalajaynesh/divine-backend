@@ -72,6 +72,8 @@ test('acknowledgePartnerActivity toggles state and returns record', async () => 
         acknowledgePartnerActivity(dayNumber: 10) {
           id
           dayNumber
+          partnerActivityId
+          activity { id dayNumber title }
           partnerAcknowledged
         }
       }
@@ -84,6 +86,15 @@ test('acknowledgePartnerActivity toggles state and returns record', async () => 
       },
       models: {
         PartnerActivity: {
+          findByPk: async (id) => {
+            assert.equal(id, 'partner-act-10');
+            return {
+              id: 'partner-act-10',
+              dayNumber: 10,
+              title: 'Sample Title',
+              description: 'Sample Description'
+            };
+          },
           findOne: async ({ where }) => {
             findActivityCalled = true;
             assert.equal(where.dayNumber, 10);
@@ -104,11 +115,13 @@ test('acknowledgePartnerActivity toggles state and returns record', async () => 
           create: async (data) => {
             createLogCalled = true;
             assert.equal(data.userId, 'mother-1');
+            assert.equal(data.partnerActivityId, 'partner-act-10');
             assert.equal(data.dayNumber, 10);
             assert.equal(data.partnerAcknowledged, true);
             return {
               id: 'log-10',
               userId: 'mother-1',
+              partnerActivityId: 'partner-act-10',
               dayNumber: 10,
               partnerAcknowledged: true,
               completedAt: new Date()
@@ -127,4 +140,6 @@ test('acknowledgePartnerActivity toggles state and returns record', async () => 
   assert.equal(findLogCalled, true);
   assert.equal(createLogCalled, true);
   assert.equal(result.data.acknowledgePartnerActivity.partnerAcknowledged, true);
+  assert.equal(result.data.acknowledgePartnerActivity.partnerActivityId, 'partner-act-10');
+  assert.equal(result.data.acknowledgePartnerActivity.activity.id, 'partner-act-10');
 });

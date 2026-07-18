@@ -72,6 +72,8 @@ test('toggleSensoryActivity toggles state and returns record', async () => {
         toggleSensoryActivity(dayNumber: 10) {
           id
           dayNumber
+          sensoryActivityId
+          activity { id dayNumber title }
           completed
         }
       }
@@ -84,6 +86,16 @@ test('toggleSensoryActivity toggles state and returns record', async () => {
       },
       models: {
         SensoryActivity: {
+          findByPk: async (id) => {
+            assert.equal(id, 'sensory-act-10');
+            return {
+              id: 'sensory-act-10',
+              dayNumber: 10,
+              senseType: 'TOUCH',
+              title: 'Sample Title',
+              description: 'Sample Description'
+            };
+          },
           findOne: async ({ where }) => {
             findActivityCalled = true;
             assert.equal(where.dayNumber, 10);
@@ -105,11 +117,13 @@ test('toggleSensoryActivity toggles state and returns record', async () => {
           create: async (data) => {
             createLogCalled = true;
             assert.equal(data.userId, 'mother-1');
+            assert.equal(data.sensoryActivityId, 'sensory-act-10');
             assert.equal(data.dayNumber, 10);
             assert.equal(data.completed, true);
             return {
               id: 'log-10',
               userId: 'mother-1',
+              sensoryActivityId: 'sensory-act-10',
               dayNumber: 10,
               completed: true,
               completedAt: new Date()
@@ -128,4 +142,6 @@ test('toggleSensoryActivity toggles state and returns record', async () => {
   assert.equal(findLogCalled, true);
   assert.equal(createLogCalled, true);
   assert.equal(result.data.toggleSensoryActivity.completed, true);
+  assert.equal(result.data.toggleSensoryActivity.sensoryActivityId, 'sensory-act-10');
+  assert.equal(result.data.toggleSensoryActivity.activity.id, 'sensory-act-10');
 });

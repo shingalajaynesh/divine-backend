@@ -44,7 +44,7 @@ export class WhatsAppService {
 
     const fullMessage = `${greeting}\n\n*${headerMsg}*\n\n${contentText}\n\n${footerMsg}`;
 
-    log.info(`Sending daily WhatsApp message to ${mobileNo} (${lang}) for user ${user.id}.`);
+    log.info(`Sending daily WhatsApp message to [REDACTED] (${lang}) for user ${user.id}.`);
 
     // Meta API Configuration
     const token = process.env.WP_FALLBACK_ACCESS_TOKEN || 'EAA...';
@@ -93,7 +93,7 @@ export class WhatsAppService {
         throw new Error(data.error?.message || 'Failed to dispatch Meta WhatsApp notification');
       }
 
-      log.info(`WhatsApp message successfully sent to ${mobileNo} via Meta API.`);
+      log.info(`WhatsApp message successfully sent to [REDACTED] via Meta API.`);
       return { success: true, metaResponse: data };
     } catch (err) {
       log.error(`WhatsApp dispatch failed for user ${user.id}:`, err);

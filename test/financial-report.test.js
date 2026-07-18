@@ -9,6 +9,7 @@ test('FinanceService - Revenue report aggregates, payment reconciliation, and re
   const mockTransactions = [];
   const mockPayments = [];
   const mockInvoices = [];
+  const mockRefunds = [];
   const mockUsers = [
     { id: 'usr_abc', displayName: 'Customer A', centerId: 'ctr_delhi', save: async function() { return this; } }
   ];
@@ -21,7 +22,11 @@ test('FinanceService - Revenue report aggregates, payment reconciliation, and re
     id: 'pay_1',
     userId: 'usr_abc',
     amount: 1000.00,
-    status: 'succeeded',
+    amountMinor: 100000,
+    currency: 'INR',
+    totalRefundedMinor: 0,
+    razorpayPaymentId: 'pay_refundable_1',
+    status: 'captured',
     save: async function() { return this; }
   });
 
@@ -73,6 +78,20 @@ test('FinanceService - Revenue report aggregates, payment reconciliation, and re
     Payment: {
       findByPk: async (id) => mockPayments.find(p => p.id === id) || null
     },
+    PaymentRefund: {
+      findOne: async (options) => mockRefunds.find(r =>
+        (options.where?.idempotencyKey && r.idempotencyKey === options.where.idempotencyKey) ||
+        (options.where?.razorpayRefundId && r.razorpayRefundId === options.where.razorpayRefundId)
+      ) || null,
+      create: async (input) => {
+        const row = {
+          ...input,
+          save: async function() { return this; }
+        };
+        mockRefunds.push(row);
+        return row;
+      }
+    },
     Invoice: {
       create: async (input) => {
         const row = {
@@ -97,7 +116,17 @@ test('FinanceService - Revenue report aggregates, payment reconciliation, and re
     }
   };
 
-  const service = new FinanceService(mockModels, mockSequelize);
+  const razorpayClient = {
+    initiateRefund: async ({ paymentId, amountMinor, idempotencyKey }) => ({
+      id: `rfnd_${idempotencyKey.replace(/[^A-Za-z0-9_]/g, '').slice(0, 20)}`,
+      payment_id: paymentId,
+      amount: amountMinor,
+      currency: 'INR',
+      status: 'created'
+    })
+  };
+
+  const service = new FinanceService(mockModels, mockSequelize, razorpayClient);
 
   // 1. Fetch initial financial report
   const initialReport = await service.getFinancialReport(null, null, null);
@@ -141,14 +170,27 @@ test('FinanceService - Revenue report aggregates, payment reconciliation, and re
   const refundTx = await service.refundTransaction(VIEWER_STAFF, 'pay_1', 400.00, 'Partial refund');
   assert.equal(refundTx.type, 'refund');
   assert.equal(refundTx.amount, 400.00);
+  assert.equal(refundTx.status, 'pending');
   assert.equal(refundTx.centerShare, 280.00); // 70% of 400
   assert.equal(refundTx.platformShare, 120.00); // 30% of 400
 
-  // 5. Verify revised aggregates after partial refund
+  const reportAfterRequest = await service.getFinancialReport(null, null, null);
+  assert.equal(reportAfterRequest.totalRefunds, 0.00); // Provider has not confirmed yet
+
+  await service.confirmProviderRefundProcessed({
+    razorpayRefundId: mockRefunds[0].razorpayRefundId,
+    razorpayPaymentId: 'pay_refundable_1',
+    amountMinor: 40000,
+    providerStatus: 'processed',
+    transaction: {}
+  });
+
+  // 5. Verify revised aggregates after provider-confirmed partial refund
   const finalReport = await service.getFinancialReport(null, null, null);
-  assert.equal(finalReport.totalRevenue, 1000.00); // Gross revenue unchanged
-  assert.equal(finalReport.totalRefunds, 400.00); // Refund tracked
-  assert.equal(finalReport.netRevenue, 600.00); // Net revenue reduced
-  assert.equal(finalReport.totalCenterShare, 420.00); // Center share reduced: 700 - 280 = 420
-  assert.equal(finalReport.totalPlatformShare, 180.00); // Platform share reduced: 300 - 120 = 180
+  assert.equal(finalReport.totalRevenue, 1000.00);
+  assert.equal(finalReport.totalRefunds, 400.00);
+  assert.equal(finalReport.netRevenue, 600.00);
+  assert.equal(finalReport.totalCenterShare, 420.00);
+  assert.equal(finalReport.totalPlatformShare, 180.00);
+  assert.equal(mockPayments[0].status, 'partially_refunded');
 });

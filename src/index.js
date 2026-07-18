@@ -11,6 +11,7 @@ import { v4 as uuidv4 } from 'uuid';
 import { initializeDataModels } from './config/db-init.js';
 import Logger, { runWithContext } from './util/logger.js';
 import bootstrapApollo from './middlewares/apollo/index.js';
+import { handleRazorpayWebhook } from './modules/payment/razorpayWebhook.controller.js';
 import {
   allowedOrigins,
   assertSecureConfiguration,
@@ -90,16 +91,72 @@ const startServer = async () => {
     const app = express();
     app.set('trust proxy', 1);
     app.use(cors(corsOptions));
-    app.use(helmet({ crossOriginResourcePolicy: { policy: 'cross-origin' } }));
+    
+    // Security headers config with custom frameguard, HSTS, and CSP
     app.use(
-      rateLimit({
-        windowMs: 15 * 60 * 1000,
-        limit: process.env.NODE_ENV === 'production' ? 3000 : 10000,
-        standardHeaders: 'draft-8',
-        legacyHeaders: false,
-      }),
+      helmet({
+        crossOriginResourcePolicy: { policy: 'cross-origin' },
+        frameguard: { action: 'deny' }, // X-Frame-Options: DENY
+        hsts: { maxAge: 31536000, includeSubDomains: true, preload: true }, // max-age 1 year
+        contentSecurityPolicy: {
+          directives: {
+            defaultSrc: ["'self'"],
+            scriptSrc: ["'self'"],
+            styleSrc: ["'self'", "'unsafe-inline'"],
+            imgSrc: ["'self'", "data:", "https:"],
+            connectSrc: ["'self'", "https:", "wss:"],
+          },
+        },
+      })
     );
-    app.use(express.json({ limit: '1mb' }));
+
+    // Rate Limiting
+    // 1. Specific rate limiter for user profile syncing mutation (acts as login)
+    const syncUserRateLimiter = rateLimit({
+      windowMs: 1 * 60 * 1000, // 1 minute
+      limit: 5, // 5 requests per minute per IP
+      standardHeaders: 'draft-8',
+      legacyHeaders: false,
+      skip: (req) => {
+        const bodyQuery = req.body?.query || '';
+        return !bodyQuery.includes('syncUser');
+      },
+      message: {
+        errors: [
+          {
+            message: 'Too many user sync attempts. Please try again later.',
+            extensions: { code: 'TOO_MANY_REQUESTS' },
+          },
+        ],
+      },
+    });
+
+    // 2. Rate limiter for password reset (future proofing)
+    const passwordResetRateLimiter = rateLimit({
+      windowMs: 60 * 60 * 1000, // 1 hour
+      limit: 3, // 3 requests per hour
+      standardHeaders: 'draft-8',
+      legacyHeaders: false,
+      message: {
+        errors: [
+          {
+            message: 'Too many password reset attempts. Please try again later.',
+            extensions: { code: 'TOO_MANY_REQUESTS' },
+          },
+        ],
+      },
+    });
+
+    // 3. Global rate limiter for defense-in-depth
+    const globalRateLimiter = rateLimit({
+      windowMs: 15 * 60 * 1000,
+      limit: process.env.NODE_ENV === 'production' ? 3000 : 10000,
+      standardHeaders: 'draft-8',
+      legacyHeaders: false,
+    });
+
+    app.use(globalRateLimiter);
+    app.use('/api/auth/password-reset', passwordResetRateLimiter);
 
     // Inject database models and connection into the express request object
     app.use((req, res, next) => {
@@ -112,6 +169,12 @@ const startServer = async () => {
         next();
       });
     });
+
+    app.post('/webhooks/razorpay', express.raw({ type: 'application/json', limit: '256kb' }), handleRazorpayWebhook);
+
+    app.use(express.json({ limit: '1mb' }));
+    // Apply mutation-specific rate limiter on graphql endpoint after json body parsing
+    app.use('/graphql', syncUserRateLimiter);
 
     // Ping endpoint for simple checking
     app.get('/ping', (req, res) => {
@@ -132,7 +195,7 @@ const startServer = async () => {
         res.status(500).json({
           status: 'ERROR',
           message: 'Database connection failed',
-          error: error.message,
+          error: process.env.NODE_ENV === 'production' ? 'Internal Server Error' : error.message,
         });
       }
     });

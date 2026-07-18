@@ -43,6 +43,15 @@ export const storeResolvers = {
     }
   },
 
+  StoreCheckoutPayload: {
+    expiresAt: (parent) => new Date(parent.expiresAt).toISOString()
+  },
+
+  StoreCheckoutStatus: {
+    expiresAt: (parent) => new Date(parent.expiresAt).toISOString(),
+    amount: (parent) => parent.totalMinor ?? parent.amount
+  },
+
   Query: {
     getProducts: authenticate(async (parent, { centerId }, context) => {
       const service = new StoreService(context.models, context.sequelize);
@@ -71,6 +80,14 @@ export const storeResolvers = {
       }
       const service = new StoreService(context.models, context.sequelize);
       return service.getAdminOrders();
+    }),
+
+    getStoreCheckoutStatus: authenticate(async (parent, { checkoutId }, context) => {
+      const checkout = await context.models.StoreCheckoutIntent.findOne({
+        where: { id: checkoutId, userId: context.viewer.id }
+      });
+      if (!checkout) throw new Error('Store checkout not found');
+      return checkout;
     })
   },
 
@@ -103,6 +120,16 @@ export const storeResolvers = {
     placeOrder: authenticate(async (parent, { addressId }, context) => {
       const service = new StoreService(context.models, context.sequelize);
       return service.placeOrder(context.viewer.id, addressId);
+    }),
+
+    createStoreCheckout: authenticate(async (parent, { addressId, couponCode }, context) => {
+      const service = new StoreService(context.models, context.sequelize);
+      return service.createStoreCheckout(context.viewer.id, addressId, couponCode);
+    }),
+
+    verifyStorePayment: authenticate(async (parent, { razorpayOrderId, razorpayPaymentId, razorpaySignature }, context) => {
+      const service = new StoreService(context.models, context.sequelize);
+      return service.verifyStorePayment(context.viewer.id, razorpayOrderId, razorpayPaymentId, razorpaySignature);
     }),
 
     updateOrderTracking: authenticate(async (parent, { orderId, carrier, trackingNumber, estimatedDeliveryDate }, context) => {

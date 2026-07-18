@@ -57,6 +57,19 @@ export class InquiryService {
     const safeStatus = inquiryStatusSchema.parse(status);
     const inquiry = await this.models.Inquiry.findOne({ where: { id, centerId } });
     if (!inquiry) throw new Error('Inquiry not found.');
+
+    const currentStatus = inquiry.status;
+    const allowed = {
+      pending: ['in_progress', 'closed'],
+      in_progress: ['resolved', 'closed'],
+      resolved: ['closed'],
+      closed: []
+    };
+
+    if (currentStatus !== safeStatus && !allowed[currentStatus]?.includes(safeStatus)) {
+      throw new Error(`Invalid status transition from ${currentStatus} to ${safeStatus}`);
+    }
+
     await inquiry.update({ status: safeStatus, assignedTo: actorId });
     return inquiry;
   }

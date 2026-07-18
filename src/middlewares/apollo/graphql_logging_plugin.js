@@ -1,6 +1,6 @@
 // GraphQL Logging Plugin with parameter sanitization
-const LOG_GRAPH_QL_REQUESTS = 'true' === (process.env.LOG_GRAPH_QL_REQUESTS || 'true').toLowerCase();
-const LOG_GRAPH_QL_RESPONSES = 'true' === (process.env.LOG_GRAPH_QL_RESPONSES || 'true').toLowerCase();
+const LOG_GRAPH_QL_REQUESTS = 'true' === (process.env.LOG_GRAPH_QL_REQUESTS || 'false').toLowerCase();
+const LOG_GRAPH_QL_RESPONSES = 'true' === (process.env.LOG_GRAPH_QL_RESPONSES || 'false').toLowerCase();
 const LOG_GRAPH_QL_VARIABLES = 'true' === (process.env.LOG_GRAPH_QL_VARIABLES || 'false').toLowerCase();
 const LOG_GRAPH_QL_DOCUMENTS = 'true' === (process.env.LOG_GRAPH_QL_DOCUMENTS || 'false').toLowerCase();
 
@@ -13,7 +13,21 @@ const SENSITIVE_KEYS = new Set([
   'mobileno',
   'clientsecret',
   'secret',
+  'apikey',
+  'api_key',
+  'privatekey',
+  'private_key',
+  'clientemail',
+  'client_email',
   'authtoken',
+  'authorization',
+  'razorpaykeysecret',
+  'razorpaysignature',
+  'razorpay_signature',
+  'firebasetoken',
+  'firebase_token',
+  'databaseurl',
+  'database_url',
   'pin',
   'email',
   'phone',

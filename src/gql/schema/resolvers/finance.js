@@ -1,7 +1,15 @@
 import { authenticate } from '../permissions/index.js';
 import { FinanceService } from '../../../modules/finance/finance.service.js';
+import { PaymentReconciliationService } from '../../../modules/payment/paymentReconciliation.service.js';
 
 export const financeResolvers = {
+  PaymentReconciliationResult: {
+    success: (parent) => {
+      if (parent.success !== undefined) return parent.success;
+      return true;
+    }
+  },
+
   FinancialTransaction: {
     reconciledAt: (parent) => parent.reconciledAt ? new Date(parent.reconciledAt).toISOString() : null,
     createdAt: (parent) => new Date(parent.createdAt).toISOString(),
@@ -56,6 +64,21 @@ export const financeResolvers = {
     refundTransaction: authenticate(async (parent, { paymentId, refundAmount, reason }, context) => {
       const service = new FinanceService(context.models, context.sequelize);
       return service.refundTransaction(context.viewer, paymentId, refundAmount, reason);
+    }),
+
+    reconcilePaymentCheckout: authenticate(async (parent, { checkoutIntentId }, context) => {
+      const service = new PaymentReconciliationService(context.models, context.sequelize);
+      return service.reconcileCheckout(context.viewer, checkoutIntentId);
+    }),
+
+    reconcilePaymentRefund: authenticate(async (parent, { refundId }, context) => {
+      const service = new PaymentReconciliationService(context.models, context.sequelize);
+      return service.reconcileRefund(context.viewer, refundId);
+    }),
+
+    reconcileStoreCheckout: authenticate(async (parent, { checkoutIntentId }, context) => {
+      const service = new PaymentReconciliationService(context.models, context.sequelize);
+      return service.reconcileStoreCheckout(context.viewer, checkoutIntentId);
     })
   }
 };

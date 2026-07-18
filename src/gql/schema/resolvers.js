@@ -81,6 +81,15 @@ export const resolvers = {
   DailyProgress: {
     ...timelineResolvers.DailyProgress,
   },
+  QuizAttempt: {
+    ...timelineResolvers.QuizAttempt,
+  },
+  PartnerActivityLog: {
+    ...timelineResolvers.PartnerActivityLog,
+  },
+  SensoryActivityLog: {
+    ...timelineResolvers.SensoryActivityLog,
+  },
   TimelineOverview: {
     ...timelineResolvers.TimelineOverview,
   },
@@ -110,6 +119,9 @@ export const resolvers = {
   },
   Invoice: {
     ...subscriptionResolvers.Invoice,
+  },
+  PaymentReconciliationResult: {
+    ...financeResolvers.PaymentReconciliationResult,
   },
   FinancialTransaction: {
     ...financeResolvers.FinancialTransaction,
@@ -158,6 +170,21 @@ export const resolvers = {
   },
   EventRegistration: {
     ...specialEventResolvers.EventRegistration,
+  },
+  Role: {
+    ...adminResolvers.Role,
+  },
+  StaffInvitation: {
+    ...adminResolvers.StaffInvitation,
+  },
+  InventoryMovement: {
+    ...adminResolvers.InventoryMovement,
+  },
+  PaymentCheckoutIntent: {
+    ...adminResolvers.PaymentCheckoutIntent,
+  },
+  PaymentProviderEvent: {
+    ...adminResolvers.PaymentProviderEvent,
   },
   Query: {
     ...userResolvers.Query,
@@ -226,6 +253,7 @@ export const resolvers = {
     ...devopsResolvers.Mutation,
     ...crmResolvers.Mutation,
     ...staffTaskResolvers.Mutation,
+    ...adminResolvers.Mutation,
     ...superAdminResolvers.Mutation,
     ...counselingResolvers.Mutation,
     ...specialEventResolvers.Mutation,

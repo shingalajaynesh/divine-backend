@@ -1,9 +1,12 @@
 import { v4 as uuidv4 } from 'uuid';
+import { RazorpayClient } from '../payment/razorpay.client.js';
+import { CHECKOUT_STATUS, PAYMENT_STATUS, REFUND_STATUS, setCheckoutStatus, setPaymentStatus } from '../payment/paymentState.js';
 
 export class FinanceService {
-  constructor(models, sequelize) {
+  constructor(models, sequelize, razorpayClient = new RazorpayClient()) {
     this.models = models;
     this.sequelize = sequelize;
+    this.razorpayClient = razorpayClient;
   }
 
   // 1. Get Financial Report/Summary Analytics
@@ -44,7 +47,7 @@ export class FinanceService {
         totalCenterShare += cShare;
         totalPlatformShare += pShare;
         transactionCount += 1;
-      } else if (tx.type === 'refund') {
+      } else if (tx.type === 'refund' && tx.status === 'completed') {
         totalRefunds += amt;
         totalCenterShare -= cShare;
         totalPlatformShare -= pShare;
@@ -109,46 +112,233 @@ export class FinanceService {
     return this.sequelize.transaction(async (t) => {
       const payment = await this.models.Payment.findByPk(paymentId, { transaction: t });
       if (!payment) throw new Error('Payment not found');
+      if (!['captured', 'succeeded', 'partially_refunded'].includes(payment.status)) {
+        throw new Error('Only captured payments can be refunded');
+      }
+      if (!payment.razorpayPaymentId) {
+        throw new Error('Payment is missing Razorpay payment reference');
+      }
 
-      if (parseFloat(refundAmount) > parseFloat(payment.amount)) {
+      const refundAmountMinor = this.decimalToMinorUnits(refundAmount);
+      const capturedAmountMinor = payment.amountMinor || this.decimalToMinorUnits(payment.amount);
+      const alreadyRefundedMinor = payment.totalRefundedMinor || 0;
+
+      if (refundAmountMinor <= 0) {
+        throw new Error('Refund amount must be greater than zero');
+      }
+      if (alreadyRefundedMinor + refundAmountMinor > capturedAmountMinor) {
         throw new Error('Refund amount exceeds original payment amount');
       }
 
       // Check if user has a center associated
       const user = await this.models.User.findByPk(payment.userId, { transaction: t });
       const centerId = user?.centerId || null;
+      const idempotencyKey = `refund:${payment.id}:${refundAmountMinor}:${String(reason || '').trim().toLowerCase().slice(0, 80)}`;
+      const existingRefund = await this.models.PaymentRefund?.findOne?.({
+        where: { idempotencyKey },
+        transaction: t,
+        lock: t.LOCK?.UPDATE
+      });
+      if (existingRefund?.financialTransactionId) {
+        return this.models.FinancialTransaction.findByPk(existingRefund.financialTransactionId, { transaction: t });
+      }
 
-      // Update payment status
-      payment.status = 'refunded';
+      const refund = await this.models.PaymentRefund.create({
+        id: uuidv4(),
+        paymentId: payment.id,
+        checkoutIntentId: payment.checkoutIntentId || null,
+        razorpayPaymentId: payment.razorpayPaymentId,
+        requestedAmountMinor: refundAmountMinor,
+        processedAmountMinor: 0,
+        currency: payment.currency || 'INR',
+        reason: reason?.trim() || null,
+        requestedByUserId: viewer.id,
+        status: REFUND_STATUS.REQUESTED,
+        providerStatus: null,
+        idempotencyKey,
+        requestedAt: new Date(),
+      }, { transaction: t });
+
+      const providerRefund = await this.razorpayClient.initiateRefund({
+        paymentId: payment.razorpayPaymentId,
+        amountMinor: refundAmountMinor,
+        receipt: refund.id,
+        idempotencyKey,
+        notes: {
+          refund_id: refund.id,
+          payment_id: payment.id,
+          checkout_intent_id: payment.checkoutIntentId || '',
+        },
+      });
+
+      refund.razorpayRefundId = providerRefund.id;
+      refund.providerStatus = providerRefund.status || 'created';
+      refund.status = REFUND_STATUS.PROVIDER_CREATED;
+
+      setPaymentStatus(payment, PAYMENT_STATUS.REFUND_PENDING);
+      payment.providerStatus = payment.providerStatus || 'captured';
       await payment.save({ transaction: t });
 
-      // Generate refund transaction ledger entry
       const refTx = await this.models.FinancialTransaction.create({
         id: uuidv4(),
         userId: payment.userId,
         centerId,
         amount: parseFloat(refundAmount),
         type: 'refund',
-        status: 'completed',
+        status: 'pending',
         centerShare: parseFloat(refundAmount) * 0.70, // 70% share reversed
         platformShare: parseFloat(refundAmount) * 0.30, // 30% share reversed
         paymentId: payment.id,
         reconciliationNotes: reason?.trim() || 'Customer refund processed'
       }, { transaction: t });
 
-      // Create a refund invoice receipt
-      await this.models.Invoice.create({
+      refund.financialTransactionId = refTx.id;
+      await refund.save({ transaction: t });
+      return refTx;
+    });
+  }
+
+  decimalToMinorUnits(value) {
+    const normalized = String(value).trim();
+    const match = normalized.match(/^(\d+)(?:\.(\d{1,2}))?$/);
+    if (!match) throw new Error('Invalid monetary amount');
+    return (Number.parseInt(match[1], 10) * 100) + (Number.parseInt((match[2] || '').padEnd(2, '0'), 10) || 0);
+  }
+
+  minorUnitsToDecimal(amountMinor) {
+    return Number((amountMinor / 100).toFixed(2));
+  }
+
+  async markProviderRefundCreated({ razorpayRefundId, razorpayPaymentId, providerStatus, transaction }) {
+    const refund = await this.findRefund(razorpayRefundId, razorpayPaymentId, transaction);
+    if (!refund) return null;
+    if (refund.status !== REFUND_STATUS.PROCESSED) {
+      refund.status = REFUND_STATUS.PROVIDER_CREATED;
+      refund.providerStatus = providerStatus || 'created';
+      await refund.save({ transaction });
+    }
+    return refund;
+  }
+
+  async confirmProviderRefundProcessed({ razorpayRefundId, razorpayPaymentId, amountMinor, providerStatus, transaction }) {
+    const refund = await this.findRefund(razorpayRefundId, razorpayPaymentId, transaction);
+    if (!refund) return null;
+    if (refund.status === REFUND_STATUS.PROCESSED) return refund;
+
+    const payment = await this.models.Payment.findByPk(refund.paymentId, {
+      transaction,
+      lock: transaction?.LOCK?.UPDATE,
+    });
+    if (!payment) throw new Error('Original payment not found for refund');
+
+    const processedAmountMinor = Number(amountMinor || refund.requestedAmountMinor);
+    if (processedAmountMinor > refund.requestedAmountMinor) {
+      throw new Error('Provider refund amount exceeds requested refund amount');
+    }
+    const capturedAmountMinor = payment.amountMinor || this.decimalToMinorUnits(payment.amount);
+    const totalRefundedMinor = (payment.totalRefundedMinor || 0) + processedAmountMinor;
+    if (totalRefundedMinor > capturedAmountMinor) {
+      throw new Error('Refund total exceeds captured payment amount');
+    }
+
+    refund.status = REFUND_STATUS.PROCESSED;
+    refund.providerStatus = providerStatus || 'processed';
+    refund.processedAmountMinor = processedAmountMinor;
+    refund.processedAt = new Date();
+
+    let refTx = refund.financialTransactionId
+      ? await this.models.FinancialTransaction.findByPk(refund.financialTransactionId, { transaction })
+      : null;
+    const user = await this.models.User.findByPk(payment.userId, { transaction });
+    const centerId = user?.centerId || null;
+    const amount = this.minorUnitsToDecimal(processedAmountMinor);
+
+    if (!refTx) {
+      refTx = await this.models.FinancialTransaction.create({
+        id: uuidv4(),
+        userId: payment.userId,
+        centerId,
+        amount,
+        type: 'refund',
+        status: 'completed',
+        centerShare: amount * 0.70,
+        platformShare: amount * 0.30,
+        paymentId: payment.id,
+        reconciliationNotes: refund.reason || 'Provider refund processed'
+      }, { transaction });
+      refund.financialTransactionId = refTx.id;
+    } else {
+      refTx.status = 'completed';
+      refTx.amount = amount;
+      refTx.centerShare = amount * 0.70;
+      refTx.platformShare = amount * 0.30;
+      await refTx.save({ transaction });
+    }
+
+    if (!refund.invoiceId) {
+      const invoice = await this.models.Invoice.create({
         id: uuidv4(),
         userId: payment.userId,
         paymentId: payment.id,
-        amount: -parseFloat(refundAmount),
+        amount: -amount,
         status: 'refunded',
-        invoiceNumber: `REF-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
+        invoiceNumber: `REF-${refund.id}`,
         billingDate: new Date(),
         dueDate: new Date()
-      }, { transaction: t });
+      }, { transaction });
+      refund.invoiceId = invoice.id;
+      refTx.invoiceId = invoice.id;
+      await refTx.save({ transaction });
+    }
 
-      return refTx;
-    });
+    payment.totalRefundedMinor = totalRefundedMinor;
+    setPaymentStatus(payment, totalRefundedMinor === capturedAmountMinor ? PAYMENT_STATUS.REFUNDED : PAYMENT_STATUS.PARTIALLY_REFUNDED);
+    await payment.save({ transaction });
+
+    if (payment.storeOrderId && this.models.StoreOrder) {
+      const storeOrder = await this.models.StoreOrder.findByPk(payment.storeOrderId, {
+        transaction,
+        lock: transaction?.LOCK?.UPDATE,
+      });
+      if (storeOrder) {
+        storeOrder.paymentStatus = payment.status;
+        await storeOrder.save({ transaction });
+      }
+    }
+
+    if (payment.checkoutIntentId) {
+      const checkout = await this.models.PaymentCheckoutIntent.findByPk(payment.checkoutIntentId, {
+        transaction,
+        lock: transaction?.LOCK?.UPDATE,
+      });
+      if (checkout) {
+        checkout.totalRefundedMinor = totalRefundedMinor;
+        setCheckoutStatus(checkout, totalRefundedMinor === capturedAmountMinor ? CHECKOUT_STATUS.REFUNDED : CHECKOUT_STATUS.PARTIALLY_REFUNDED);
+        await checkout.save({ transaction });
+      }
+    }
+
+    await refund.save({ transaction });
+    return refund;
+  }
+
+  async markProviderRefundFailed({ razorpayRefundId, razorpayPaymentId, providerStatus, failureCode, failureMessage, transaction }) {
+    const refund = await this.findRefund(razorpayRefundId, razorpayPaymentId, transaction);
+    if (!refund || refund.status === REFUND_STATUS.PROCESSED) return refund;
+    refund.status = REFUND_STATUS.FAILED;
+    refund.providerStatus = providerStatus || 'failed';
+    refund.failureCode = failureCode || null;
+    refund.failureMessage = String(failureMessage || 'Provider refund failed').slice(0, 500);
+    await refund.save({ transaction });
+    return refund;
+  }
+
+  async findRefund(razorpayRefundId, razorpayPaymentId, transaction) {
+    const where = razorpayRefundId ? { razorpayRefundId } : { razorpayPaymentId };
+    return this.models.PaymentRefund?.findOne?.({
+      where,
+      transaction,
+      lock: transaction?.LOCK?.UPDATE,
+    }) || null;
   }
 }

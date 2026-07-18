@@ -21,7 +21,7 @@ export const initializeDataModels = (logger) => {
 
   if (process.env.DATABASE_URL) {
     const url = new URL(process.env.DATABASE_URL);
-    const useSSL = process.env.DB_SSL === 'true' || process.env.DATABASE_URL.includes('sslmode=require');
+    const useSSL = process.env.DB_SSL !== 'false' && (process.env.NODE_ENV === 'production' || process.env.DB_SSL === 'true' || url.searchParams.get('sslmode') === 'require');
     
     config = {
       database: decodeURIComponent(url.pathname.substring(1)),
@@ -39,7 +39,7 @@ export const initializeDataModels = (logger) => {
       pool
     };
   } else {
-    const useSSL = process.env.DB_SSL === 'true';
+    const useSSL = process.env.DB_SSL !== 'false' && (process.env.NODE_ENV === 'production' || process.env.DB_SSL === 'true');
     config = {
       database: process.env.DB_NAME || 'divine_garbh_sanskar',
       dbUser: process.env.DB_USER || 'postgres',

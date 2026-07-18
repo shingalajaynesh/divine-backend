@@ -138,9 +138,9 @@ export const subscriptionResolvers = {
       return service.createRazorpayOrder(context.viewer.id, planId, couponCode);
     }),
 
-    verifyRazorpayPayment: authenticate(async (parent, { planId, razorpayOrderId, razorpayPaymentId, razorpaySignature }, context) => {
+    verifyRazorpayPayment: authenticate(async (parent, { razorpayOrderId, razorpayPaymentId, razorpaySignature }, context) => {
       const service = new SubscriptionService(context.models, context.sequelize);
-      return service.verifyRazorpayPayment(context.viewer.id, planId, razorpayOrderId, razorpayPaymentId, razorpaySignature);
+      return service.verifyRazorpayPayment(context.viewer.id, razorpayOrderId, razorpayPaymentId, razorpaySignature);
     }),
 
     createSubscriptionPlan: authenticate(async (parent, args, context) => {

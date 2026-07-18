@@ -14,7 +14,7 @@ test('subscription queries require authentication', async () => {
   assert.equal(result.errors?.[0]?.extensions?.code, 'UNAUTHENTICATED');
 });
 
-test('SubscriptionService manages plans, trials, coupons validation, and upgrades', async () => {
+test('SubscriptionService manages plans, trials, coupons validation, and blocks direct upgrades', async () => {
   let plansFetched = false;
   let subCreated = null;
   let subUpdated = null;
@@ -101,13 +101,16 @@ test('SubscriptionService manages plans, trials, coupons validation, and upgrade
   assert.equal(validCoupon.code, VALID_COUPON_CODE);
   assert.equal(validCoupon.discountPercent, 50);
 
-  // 4. Upgrade Subscribe with Coupon
+  // 4. Direct paid subscription activation is blocked; Razorpay checkout must be used.
   subCreated = {
     id: 'sub-1',
     status: 'trialing',
     save: async function() { subUpdated = this; }
   };
-  await service.subscribe(VALID_USER_ID, VALID_PLAN_ID, VALID_COUPON_CODE);
-  assert.equal(subUpdated.status, 'active');
-  assert.equal(couponRedemptions, 1);
+  await assert.rejects(
+    service.subscribe(VALID_USER_ID, VALID_PLAN_ID, VALID_COUPON_CODE),
+    /Direct paid subscription activation is disabled/
+  );
+  assert.equal(subUpdated, null);
+  assert.equal(couponRedemptions, 0);
 });

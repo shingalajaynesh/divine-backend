@@ -68,6 +68,7 @@ export class QuizService {
 
       attempt = await this.models.QuizAttempt.create({
         userId,
+        quizQuestionId: quiz.id,
         dayNumber: validated.dayNumber,
         selectedOptionIndex: validated.selectedOptionIndex,
         isCorrect: validated.selectedOptionIndex === quiz.correctOptionIndex,

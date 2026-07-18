@@ -55,6 +55,30 @@ const runValidated = async (operation) => {
 };
 
 export const timelineResolvers = {
+  QuizAttempt: {
+    question: async (parent, args, context) => {
+      if (parent.question) return parent.question;
+      if (parent.quizQuestionId) return context.models.QuizQuestion.findByPk(parent.quizQuestionId);
+      if (parent.dayNumber) return context.models.QuizQuestion.findOne({ where: { dayNumber: parent.dayNumber } });
+      return null;
+    },
+  },
+  PartnerActivityLog: {
+    activity: async (parent, args, context) => {
+      if (parent.activity) return parent.activity;
+      if (parent.partnerActivityId) return context.models.PartnerActivity.findByPk(parent.partnerActivityId);
+      if (parent.dayNumber) return context.models.PartnerActivity.findOne({ where: { dayNumber: parent.dayNumber } });
+      return null;
+    },
+  },
+  SensoryActivityLog: {
+    activity: async (parent, args, context) => {
+      if (parent.activity) return parent.activity;
+      if (parent.sensoryActivityId) return context.models.SensoryActivity.findByPk(parent.sensoryActivityId);
+      if (parent.dayNumber) return context.models.SensoryActivity.findOne({ where: { dayNumber: parent.dayNumber } });
+      return null;
+    },
+  },
   DailyProgress: {
     completedAt: (parent) => parent.completedAt ? parent.completedAt.toISOString() : null,
     createdAt: (parent) => parent.createdAt.toISOString(),

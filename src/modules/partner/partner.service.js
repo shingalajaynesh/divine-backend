@@ -62,6 +62,7 @@ export class PartnerService {
       } else {
         log = await this.models.PartnerActivityLog.create({
           userId,
+          partnerActivityId: activity.id,
           dayNumber: parsedDay,
           partnerAcknowledged: true,
           completedAt: new Date()
@@ -76,6 +77,13 @@ export class PartnerService {
     const parsedDay = z.number().int().min(1).max(280).parse(dayNumber);
     const titleClean = z.string().min(1).parse(title);
     const descClean = z.string().optional().parse(description);
+    const activity = await this.models.PartnerActivity.findOne({
+      where: { dayNumber: parsedDay }
+    });
+
+    if (!activity) {
+      throw new Error(`No partner activity details available for Day ${parsedDay}.`);
+    }
 
     return this.sequelize.transaction(async (transaction) => {
       let log = await this.models.PartnerActivityLog.findOne({
@@ -92,6 +100,7 @@ export class PartnerService {
       } else {
         log = await this.models.PartnerActivityLog.create({
           userId,
+          partnerActivityId: activity.id,
           dayNumber: parsedDay,
           assignedTaskTitle: titleClean,
           assignedTaskDesc: descClean || null,
@@ -107,6 +116,13 @@ export class PartnerService {
     const parsedDay = z.number().int().min(1).max(280).parse(dayNumber);
     const responseClean = z.string().min(1).parse(response);
     const notesClean = z.string().optional().parse(familyNotes);
+    const activity = await this.models.PartnerActivity.findOne({
+      where: { dayNumber: parsedDay }
+    });
+
+    if (!activity) {
+      throw new Error(`No partner activity details available for Day ${parsedDay}.`);
+    }
 
     return this.sequelize.transaction(async (transaction) => {
       let log = await this.models.PartnerActivityLog.findOne({
@@ -125,6 +141,7 @@ export class PartnerService {
       } else {
         log = await this.models.PartnerActivityLog.create({
           userId,
+          partnerActivityId: activity.id,
           dayNumber: parsedDay,
           partnerResponse: responseClean,
           familyNotes: notesClean || null,

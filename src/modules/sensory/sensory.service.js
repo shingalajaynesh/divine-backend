@@ -65,6 +65,7 @@ export class SensoryService {
       } else {
         log = await this.models.SensoryActivityLog.create({
           userId,
+          sensoryActivityId: activity.id,
           dayNumber: parsedDay,
           completed: true,
           completedAt: new Date()

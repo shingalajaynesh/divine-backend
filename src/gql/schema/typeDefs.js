@@ -39,6 +39,7 @@ export const typeDefs = `#graphql
     shareVitalsWithPartner: Boolean!
     shareReportsWithPartner: Boolean!
     postpartumPlan: String
+    emergencyContacts: String
   }
 
   type PartnerDashboardData {
@@ -160,6 +161,7 @@ export const typeDefs = `#graphql
     description: String
     dueDate: String
     completed: Boolean!
+    status: String!
     createdAt: String!
     updatedAt: String!
     user: User
@@ -280,7 +282,43 @@ export const typeDefs = `#graphql
     stripeSessionId: String
     amount: Float!
     status: String!
+    providerStatus: String
+    amountMinor: Int
+    currency: String
+    totalRefundedMinor: Int
     createdAt: String!
+    userId: ID
+    user: User
+    razorpayOrderId: String
+    razorpayPaymentId: String
+    purpose: String
+  }
+
+  type PaymentRefund {
+    id: ID!
+    paymentId: ID!
+    checkoutIntentId: ID
+    razorpayPaymentId: String
+    razorpayRefundId: String
+    requestedAmountMinor: Int!
+    processedAmountMinor: Int!
+    currency: String!
+    status: String!
+    providerStatus: String
+    requestedAt: String!
+    processedAt: String
+    reason: String
+    createdAt: String!
+  }
+
+  type PaymentReconciliationResult {
+    referenceId: ID!
+    providerOrderStatus: String
+    providerPaymentStatus: String
+    localStatus: String
+    actions: [String!]!
+    message: String!
+    success: Boolean!
   }
 
   type ExpertSchedule {
@@ -465,8 +503,15 @@ export const typeDefs = `#graphql
   type StoreOrder {
     id: ID!
     totalAmount: Float!
+    totalAmountMinor: Int
+    currency: String
+    paymentStatus: String
+    paymentId: ID
+    invoiceId: ID
+    storeCheckoutIntentId: ID
     status: String!
     createdAt: String!
+    user: User
     address: UserAddress
     items: [StoreOrderItem!]!
     carrier: String
@@ -482,6 +527,30 @@ export const typeDefs = `#graphql
     quantity: Int!
     price: Float!
     product: Product!
+  }
+
+  type StoreCheckoutPayload {
+    id: ID!
+    razorpayOrderId: String!
+    amount: Int!
+    currency: String!
+    receipt: String!
+    status: String!
+    expiresAt: String!
+  }
+
+  type StoreCheckoutStatus {
+    id: ID!
+    status: String!
+    razorpayOrderId: String
+    storeOrderId: ID
+    paymentId: ID
+    invoiceId: ID
+    amount: Int!
+    currency: String!
+    failureCode: String
+    failureMessage: String
+    expiresAt: String!
   }
 
   type SubscriptionPlan {
@@ -1137,6 +1206,8 @@ export const typeDefs = `#graphql
   type QuizAttempt {
     id: ID!
     userId: ID!
+    quizQuestionId: ID
+    question: QuizQuestion
     dayNumber: Int!
     selectedOptionIndex: Int!
     isCorrect: Boolean!
@@ -1165,6 +1236,8 @@ export const typeDefs = `#graphql
   type PartnerActivityLog {
     id: ID!
     userId: ID!
+    partnerActivityId: ID
+    activity: PartnerActivity
     dayNumber: Int!
     partnerAcknowledged: Boolean!
     assignedTaskTitle: String
@@ -1187,6 +1260,8 @@ export const typeDefs = `#graphql
   type SensoryActivityLog {
     id: ID!
     userId: ID!
+    sensoryActivityId: ID
+    activity: SensoryActivity
     dayNumber: Int!
     completed: Boolean!
     completedAt: String
@@ -1332,6 +1407,124 @@ export const typeDefs = `#graphql
     count: Int!
   }
 
+  type StaffInvitation {
+    id: ID!
+    emailAddress: String!
+    roleId: ID!
+    role: Role!
+    centerId: ID!
+    center: Center!
+    token: String!
+    status: String!
+    expiresAt: String!
+    createdBy: ID!
+    creator: User!
+    createdAt: String!
+  }
+
+  type InventoryMovement {
+    id: ID!
+    productId: ID!
+    product: Product!
+    centerId: ID
+    center: Center
+    reasonCode: String!
+    reasonNote: String
+    quantityBefore: Int!
+    quantityChange: Int!
+    quantityAfter: Int!
+    referenceType: String
+    referenceId: String
+    performedBy: ID!
+    performer: User!
+    requestCorrelationId: String
+    createdAt: String!
+  }
+
+  type PaymentCheckoutIntent {
+    id: ID!
+    userId: ID!
+    user: User
+    subscriptionPlanId: ID!
+    plan: SubscriptionPlan
+    couponId: ID
+    razorpayOrderId: String
+    razorpayPaymentId: String
+    expectedAmountMinor: Int!
+    currency: String!
+    purpose: String!
+    status: String!
+    receipt: String!
+    expiresAt: String!
+    verifiedAt: String
+    processedAt: String
+    providerConfirmedAt: String
+    providerStatus: String
+    totalRefundedMinor: Int!
+    paymentId: ID
+    invoiceId: ID
+    failureReason: String
+    createdAt: String!
+  }
+
+  type PaymentProviderEvent {
+    id: ID!
+    provider: String!
+    providerEventId: String!
+    eventType: String!
+    razorpayOrderId: String
+    razorpayPaymentId: String
+    razorpayRefundId: String
+    checkoutIntentId: ID
+    storeCheckoutIntentId: ID
+    processingStatus: String!
+    processingAttempts: Int!
+    firstReceivedAt: String!
+    lastReceivedAt: String!
+    processingStartedAt: String
+    processedAt: String
+    nextRetryAt: String
+    lastErrorCode: String
+    lastErrorMessage: String
+    correlationId: String
+    createdAt: String!
+  }
+
+  type UserConnection {
+    items: [User!]!
+    total: Int!
+  }
+
+  type PaymentConnection {
+    items: [Payment!]!
+    total: Int!
+  }
+
+  type CheckoutIntentConnection {
+    items: [PaymentCheckoutIntent!]!
+    total: Int!
+  }
+
+  type ProviderEventConnection {
+    items: [PaymentProviderEvent!]!
+    total: Int!
+  }
+
+  type RefundConnection {
+    items: [PaymentRefund!]!
+    total: Int!
+  }
+
+  type StaffInvitationConnection {
+    items: [StaffInvitation!]!
+    total: Int!
+  }
+
+  type InventoryMovementConnection {
+    items: [InventoryMovement!]!
+    total: Int!
+  }
+
   type SuperAdminMetrics {
     totalUsersCount: Int!
     totalCentersCount: Int!
@@ -1342,6 +1535,14 @@ export const typeDefs = `#graphql
   }
 
   type Query {
+    adminGetUsers(page: Int, pageSize: Int, search: String, status: String, role: String, centerId: ID, sortField: String, sortDirection: String): UserConnection!
+    adminGetPayments(page: Int, pageSize: Int, search: String, status: String, centerId: ID): PaymentConnection!
+    adminGetCheckoutIntents(page: Int, pageSize: Int, search: String, status: String, centerId: ID): CheckoutIntentConnection!
+    adminGetProviderEvents(page: Int, pageSize: Int, search: String, processingStatus: String): ProviderEventConnection!
+    adminGetRefunds(page: Int, pageSize: Int, status: String): RefundConnection!
+    adminGetStaffInvitations(page: Int, pageSize: Int, search: String, status: String, centerId: ID): StaffInvitationConnection!
+    adminGetInventoryMovements(page: Int, pageSize: Int, productId: ID, centerId: ID, reasonCode: String): InventoryMovementConnection!
+    getRoles: [Role!]!
     getCenters: [Center!]!
     getCenterKpis: CenterKpis!
     getFranchiseMetrics: FranchiseMetrics!
@@ -1419,6 +1620,7 @@ export const typeDefs = `#graphql
     getAddresses: [UserAddress!]!
     getMyOrders: [StoreOrder!]!
     getAdminOrders: [StoreOrder!]!
+    getStoreCheckoutStatus(checkoutId: ID!): StoreCheckoutStatus!
     getPlans: [SubscriptionPlan!]!
     getMySubscription: UserSubscription
     validateCoupon(code: String!): Coupon
@@ -1517,6 +1719,8 @@ export const typeDefs = `#graphql
     dispatchDailyWhatsAppReminders: Boolean!
     dispatchDailyReminders: ReminderDispatchReport!
     savePostpartumPlan(planJson: String!): User!
+    deleteMyAccount: Boolean!
+    saveEmergencyContacts(contactsJson: String!): User!
     submitInquiry(input: SubmitInquiryInput!): Inquiry!
     updateInquiryStatus(id: ID!, status: String!): Inquiry!
     replyToInquiry(id: ID!, content: String!): Inquiry!
@@ -1592,6 +1796,8 @@ export const typeDefs = `#graphql
     addAddress(input: AddAddressInput!): UserAddress!
     deleteAddress(id: ID!): Boolean!
     placeOrder(addressId: ID!): StoreOrder!
+    createStoreCheckout(addressId: ID!, couponCode: String): StoreCheckoutPayload!
+    verifyStorePayment(razorpayOrderId: String!, razorpayPaymentId: String!, razorpaySignature: String!): StoreOrder!
     updateOrderTracking(orderId: ID!, carrier: String!, trackingNumber: String!, estimatedDeliveryDate: String): StoreOrder!
     updateOrderStatus(orderId: ID!, status: String!): StoreOrder!
     requestOrderReturn(orderId: ID!, reason: String!): StoreOrderReturn!
@@ -1600,7 +1806,7 @@ export const typeDefs = `#graphql
     subscribeToPlan(planId: ID!, couponCode: String): UserSubscription!
     cancelSubscription: UserSubscription!
     createRazorpayOrder(planId: ID!, couponCode: String): RazorpayOrder!
-    verifyRazorpayPayment(planId: ID!, razorpayOrderId: String!, razorpayPaymentId: String!, razorpaySignature: String!): UserSubscription!
+    verifyRazorpayPayment(planId: ID, razorpayOrderId: String!, razorpayPaymentId: String!, razorpaySignature: String!): UserSubscription!
     addCrmNote(userId: ID!, note: String!): CrmNote!
     logAdminAction(action: String!, targetType: String, targetId: String, payload: String): AdminAuditLog!
     recordClassAttendance(classId: ID!, userId: ID!, attended: Boolean!): LiveClassBooking!
@@ -1610,6 +1816,7 @@ export const typeDefs = `#graphql
     sendLiveClassReminder(classId: ID!): Boolean!
     createStaffTask(userId: ID, title: String!, description: String, dueDate: String): StaffTask!
     toggleStaffTask(id: ID!): StaffTask!
+    updateStaffTaskStatus(id: ID!, status: String!): StaffTask!
     deleteStaffTask(id: ID!): Boolean!
     createExpertSchedule(dayOfWeek: Int!, startTime: String!, endTime: String!, slotDurationMins: Int!): ExpertSchedule!
     deleteExpertSchedule(id: ID!): Boolean!
@@ -1647,6 +1854,9 @@ export const typeDefs = `#graphql
     deleteCoupon(id: ID!): Boolean!
     simulateRenewals: [UserSubscription!]!
     reconcileTransaction(transactionId: ID!, notes: String): FinancialTransaction!
+    reconcilePaymentCheckout(checkoutIntentId: ID!): PaymentReconciliationResult!
+    reconcileStoreCheckout(checkoutIntentId: ID!): PaymentReconciliationResult!
+    reconcilePaymentRefund(refundId: ID!): PaymentReconciliationResult!
     refundTransaction(paymentId: ID!, refundAmount: Float!, reason: String!): FinancialTransaction!
     createReportTemplate(title: String!, description: String, role: String!, filters: String, widgets: String!): ReportTemplate!
     deleteReportTemplate(id: ID!): Boolean!
@@ -1657,5 +1867,13 @@ export const typeDefs = `#graphql
     updateSystemSetting(key: String!, value: String!): SystemSetting!
     updateFeatureFlag(name: String!, isEnabled: Boolean!, rules: String): FeatureFlag!
     upsertLocaleString(lang: String!, key: String!, value: String!): LocaleString!
+    createStaff(emailAddress: String!, displayName: String!, roleId: ID!, centerId: ID!): StaffInvitation!
+    resendStaffInvitation(invitationId: ID!): StaffInvitation!
+    linkFirebaseStaffAccount(token: String!, firebaseIdToken: String!): User!
+    updateUserStatus(id: ID!, isActive: Boolean!): User!
+    updateUserRole(id: ID!, roleId: ID!): User!
+    updateUserCenter(id: ID!, centerId: ID!): User!
+    adminCreateRefund(paymentId: ID!, amountMinor: Int!, reason: String!, idempotencyKey: String!): PaymentRefund!
+    adjustInventory(productId: ID!, centerId: ID, reasonCode: String!, reasonNote: String!, quantityChange: Int!, referenceType: String, referenceId: String, idempotencyKey: String!): InventoryMovement!
   }
 `;

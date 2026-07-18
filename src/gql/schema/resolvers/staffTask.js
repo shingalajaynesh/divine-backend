@@ -7,6 +7,12 @@ export const staffTaskResolvers = {
       const d = typeof parent.dueDate === 'string' ? new Date(parent.dueDate) : parent.dueDate;
       return d.toISOString();
     },
+    status: (parent) => {
+      if (parent.completed) return 'COMPLETED';
+      const desc = parent.description || '';
+      const match = desc.match(/\[STATUS:(PENDING|IN_PROGRESS|BLOCKED|CANCELLED)\]/);
+      return match ? match[1] : 'PENDING';
+    },
     user: async (parent, args, context) => {
       if (!parent.userId) return null;
       return await context.models.User.findByPk(parent.userId);
@@ -104,6 +110,57 @@ export const staffTaskResolvers = {
       }
 
       task.completed = !task.completed;
+      await task.save();
+      return task;
+    }),
+
+    updateStaffTaskStatus: authenticate(async (parent, { id, status }, context) => {
+      const role = context.viewer.role?.roleType;
+      if (role !== 'ADMIN' && role !== 'STAFF') {
+        throw new Error('Unauthorized');
+      }
+
+      const task = await context.models.StaffTask.findByPk(id);
+      if (!task) throw new Error('Task not found');
+
+      if (task.staffId !== context.viewer.id) {
+        throw new Error('Unauthorized to modify this task');
+      }
+
+      const validStatuses = ['PENDING', 'IN_PROGRESS', 'BLOCKED', 'COMPLETED', 'CANCELLED'];
+      if (!validStatuses.includes(status)) {
+        throw new Error(`Invalid task status: ${status}`);
+      }
+
+      // Enforce status transitions
+      const currentStatus = task.completed ? 'COMPLETED' : (() => {
+        const match = (task.description || '').match(/\[STATUS:(PENDING|IN_PROGRESS|BLOCKED|CANCELLED)\]/);
+        return match ? match[1] : 'PENDING';
+      })();
+
+      const allowedTransitions = {
+        PENDING: ['IN_PROGRESS', 'BLOCKED', 'COMPLETED', 'CANCELLED'],
+        IN_PROGRESS: ['BLOCKED', 'COMPLETED', 'CANCELLED'],
+        BLOCKED: ['IN_PROGRESS', 'COMPLETED', 'CANCELLED'],
+        COMPLETED: [],
+        CANCELLED: []
+      };
+
+      if (currentStatus !== status && !allowedTransitions[currentStatus]?.includes(status)) {
+        throw new Error(`Invalid task status transition from ${currentStatus} to ${status}`);
+      }
+
+      // Clean existing prefix
+      let cleanDesc = (task.description || '').replace(/\[STATUS:(PENDING|IN_PROGRESS|BLOCKED|CANCELLED)\]/, '').trim();
+      
+      if (status === 'COMPLETED') {
+        task.completed = true;
+        task.description = cleanDesc;
+      } else {
+        task.completed = false;
+        task.description = `${cleanDesc} [STATUS:${status}]`.trim();
+      }
+
       await task.save();
       return task;
     }),

@@ -5,7 +5,7 @@ import { StoreService } from '../src/modules/store/store.service.js';
 const VIEWER_STAFF = { id: '66666666-6666-4666-a666-666666666666', role: { roleType: 'STAFF' } };
 const VIEWER_MOTHER = { id: '77777777-7777-4777-a777-777777777777', role: { roleType: 'MOTHER' } };
 
-test('StoreService - Products catalog CRUD, stock deduction checkout, tracking, and returns', async () => {
+test('StoreService - Products catalog CRUD, secure checkout gate, tracking, and returns', async () => {
   const mockProducts = [];
   const mockCartItems = [];
   const mockAddresses = [];
@@ -240,25 +240,28 @@ test('StoreService - Products catalog CRUD, stock deduction checkout, tracking, 
   assert.equal(parseFloat(updatedProd.price), 599.00);
   assert.equal(updatedProd.inventoryCount, 12);
 
-  // 4. Test checkout placing order and stock reduction
+  // 4. Old direct unpaid checkout is blocked
   const cartList = await service.getCart('66666666-6666-4666-a666-666666666666');
   assert.equal(cartList.length, 1);
   assert.equal(cartList[0].productId, '11111111-1111-4111-a111-111111111111');
   assert.equal(cartList[0].quantity, 2);
 
-  // Let's checkout
-  const order = await service.placeOrder('66666666-6666-4666-a666-666666666666', '33333333-3333-4333-a333-333333333333');
+  await assert.rejects(
+    service.placeOrder('66666666-6666-4666-a666-666666666666', '33333333-3333-4333-a333-333333333333'),
+    /Direct unpaid store order placement is disabled/
+  );
+
+  const order = await mockModels.StoreOrder.create({
+    userId: '66666666-6666-4666-a666-666666666666',
+    addressId: '33333333-3333-4333-a333-333333333333',
+    totalAmount: 1198.00,
+    status: 'processing'
+  });
   assert.ok(order);
-  assert.equal(order.status, 'processing');
-  assert.equal(parseFloat(order.totalAmount), 1198.00); // 599 * 2
 
-  // Verify stock was deducted (12 - 2 = 10)
+  // Verify stock was not deducted by direct order placement
   const checkedProduct = await mockModels.Product.findByPk('11111111-1111-4111-a111-111111111111');
-  assert.equal(checkedProduct.inventoryCount, 10);
-
-  // Verify cart is empty
-  const emptyCart = await service.getCart('66666666-6666-4666-a666-666666666666');
-  assert.equal(emptyCart.length, 0);
+  assert.equal(checkedProduct.inventoryCount, 12);
 
   // 5. Test Order Tracking updates
   const trackedOrder = await service.updateOrderTracking('77777777-7777-4777-a777-777777777777', 'DHL', 'TRACK-1234', '2026-07-15T00:00:00Z');

@@ -72,6 +72,8 @@ test('submitQuizAnswer checks answer correctly and records attempt', async () =>
         submitQuizAnswer(dayNumber: 10, selectedOptionIndex: 2) {
           id
           dayNumber
+          quizQuestionId
+          question { id dayNumber }
           selectedOptionIndex
           isCorrect
         }
@@ -85,6 +87,17 @@ test('submitQuizAnswer checks answer correctly and records attempt', async () =>
       },
       models: {
         QuizQuestion: {
+          findByPk: async (id) => {
+            assert.equal(id, 'quiz-10');
+            return {
+              id: 'quiz-10',
+              dayNumber: 10,
+              correctOptionIndex: 2,
+              questionText: 'Question',
+              options: ['A', 'B', 'C', 'D'],
+              explanation: 'Explanation'
+            };
+          },
           findOne: async ({ where }) => {
             findQuestionCalled = true;
             assert.equal(where.dayNumber, 10);
@@ -105,12 +118,14 @@ test('submitQuizAnswer checks answer correctly and records attempt', async () =>
           create: async (data) => {
             createAttemptCalled = true;
             assert.equal(data.userId, 'mother-1');
+            assert.equal(data.quizQuestionId, 'quiz-10');
             assert.equal(data.dayNumber, 10);
             assert.equal(data.selectedOptionIndex, 2);
             assert.equal(data.isCorrect, true);
             return {
               id: 'attempt-1',
               userId: 'mother-1',
+              quizQuestionId: 'quiz-10',
               dayNumber: 10,
               selectedOptionIndex: 2,
               isCorrect: true,
@@ -131,4 +146,6 @@ test('submitQuizAnswer checks answer correctly and records attempt', async () =>
   assert.equal(createAttemptCalled, true);
   assert.equal(result.data.submitQuizAnswer.isCorrect, true);
   assert.equal(result.data.submitQuizAnswer.selectedOptionIndex, 2);
+  assert.equal(result.data.submitQuizAnswer.quizQuestionId, 'quiz-10');
+  assert.equal(result.data.submitQuizAnswer.question.id, 'quiz-10');
 });

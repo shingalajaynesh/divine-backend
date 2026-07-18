@@ -27,10 +27,43 @@ import Logger, { setContext, runWithContext } from '../../util/logger.js';
 const pubSub = new PubSub();
 
 const formatError = (formattedError, error) => {
+  const correlationId = uuidv4();
   const log = new Logger('Apollo').configureLogger();
-  const originalError = unwrapResolverError(error);
-  log.error('Apollo Error', originalError);
-  return formattedError;
+  const originalError = unwrapResolverError(error) || error;
+
+  // Log detailed error stack and path on the server side with the correlation ID
+  log.error(`Apollo Error [Correlation ID: ${correlationId}]:`, {
+    message: error.message,
+    stack: originalError.stack,
+    path: error.path,
+    extensions: error.extensions,
+  });
+
+  if (process.env.NODE_ENV === 'production') {
+    // Client-safe codes that are safe to expose
+    const safeCodes = ['UNAUTHENTICATED', 'FORBIDDEN', 'BAD_USER_INPUT', 'PAYMENTS_NOT_CONFIGURED', 'DEVICE_UNAUTHORIZED'];
+    const code = error.extensions?.code;
+    const isSafe = safeCodes.includes(code);
+
+    return {
+      message: isSafe ? error.message : 'An unexpected error occurred. Please contact support.',
+      locations: formattedError.locations,
+      path: formattedError.path,
+      extensions: {
+        code: isSafe ? code : 'INTERNAL_SERVER_ERROR',
+        correlationId,
+      },
+    };
+  }
+
+  // In non-production, return details but append the correlationId
+  return {
+    ...formattedError,
+    extensions: {
+      ...formattedError.extensions,
+      correlationId,
+    }
+  };
 };
 
 const updateAllManagersViewer = (viewer, managers) => {
@@ -116,32 +149,7 @@ const createContext = async ({ req, res }) => {
           ipAddress: req.ip || req.connection.remoteAddress || '',
         }, 'web');
 
-        // 4. Validate device whitelisting (TEMPORARILY DISABLED)
-        /*
-        const isDeviceOp = req.body?.query?.includes('registerDevice') || 
-                           req.body?.query?.includes('deauthorizeDevice') || 
-                           req.body?.query?.includes('getMyDevices');
-
-        const deviceCheck = await deviceManager.validateDevice(viewer.id, deviceInfo.deviceId, viewer.centerId);
-        if (!deviceCheck.isValid) {
-          req.logger.warn(`Device check failed for user ${viewer.id}: ${deviceCheck.reason}`);
-          if (deviceCheck.reason !== 'Device whitelisting disabled' && !isDeviceOp) {
-            throw new Error(`Device unauthorized: ${deviceCheck.reason}`);
-          }
-        } else if (deviceInfo.deviceId && !isDeviceOp) {
-          // Register/update device
-          try {
-            await deviceManager.registerDevice(viewer.id, deviceInfo);
-          } catch (e) {
-            if (e.message.includes('Maximum concurrent device limit reached')) {
-              throw new Error(`Device unauthorized: ${e.message}`);
-            }
-            throw e;
-          }
-        }
-        */
-
-        // 5. Validate User Session
+        // 4. Validate User Session
         if (sid) {
           const sessionCheck = await sessionManager.validateSession(sid, viewer.centerId);
           if (!sessionCheck.valid) {
@@ -170,8 +178,11 @@ const createContext = async ({ req, res }) => {
       }
     }
   } catch (error) {
-    req.logger.error('Error establishing context user authentication:', error);
-    throw error;
+    req.logger.warn('Error establishing context user authentication (proceeding as unauthenticated):', error.message || error);
+    viewer = null;
+    firebaseUserId = null;
+    firebaseAuth = null;
+    updateAllManagersViewer(null, managers);
   }
 
   return {

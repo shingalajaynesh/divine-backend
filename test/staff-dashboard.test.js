@@ -242,3 +242,53 @@ test('Live class attendance tracking operations', async () => {
   assert.equal(mutationResult.errors, undefined);
   assert.equal(bookingSaved, true);
 });
+
+test('StaffTask updateStaffTaskStatus mutation handles transitions and updates description status prefix', async () => {
+  let savedTask = false;
+
+  const mockModels = {
+    StaffTask: {
+      findByPk: async (id) => {
+        if (id !== TASK_ID) return null;
+        return {
+          id: TASK_ID,
+          staffId: STAFF_USER_ID,
+          userId: MEMBER_USER_ID,
+          title: 'Review medical reports',
+          completed: false,
+          description: 'Initial task description',
+          save: async function() {
+            savedTask = true;
+            return this;
+          }
+        };
+      }
+    }
+  };
+
+  const updateStatusMutation = `
+    mutation {
+      updateStaffTaskStatus(id: "${TASK_ID}", status: "IN_PROGRESS") {
+        id
+        status
+        completed
+        description
+      }
+    }
+  `;
+
+  const result = await graphql({
+    schema,
+    source: updateStatusMutation,
+    contextValue: {
+      viewer: { id: STAFF_USER_ID, role: { roleType: 'STAFF' } },
+      models: mockModels
+    }
+  });
+
+  assert.equal(result.errors, undefined);
+  assert.equal(result.data.updateStaffTaskStatus.status, 'IN_PROGRESS');
+  assert.equal(result.data.updateStaffTaskStatus.completed, false);
+  assert.match(result.data.updateStaffTaskStatus.description, /\[STATUS:IN_PROGRESS\]/);
+  assert.equal(savedTask, true);
+});

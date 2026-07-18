@@ -59,3 +59,22 @@ test('notification foundation exposes inbox, preference, reminder, and delivery 
     await assert.rejects(models.Notification.build({ userId: 'b77901a4-965f-47fb-950b-bfedcd1ef90e', kind: 'reminder', title: 'Practice', body: 'Time to begin', status: 'read' }).validate(), /requires readAt/);
   } finally { await sequelize.close(); }
 });
+
+test('database consistency associations expose approved FK relationships', async () => {
+  const { sequelize, models } = createModels();
+  try {
+    assert.equal(models.ContentItem.associations.reviewer.target, models.User);
+    assert.equal(models.RegisteredDevice.associations.approver.target, models.User);
+    assert.equal(models.Testimonial.associations.approver.target, models.User);
+    assert.equal(models.UserMealPlan.associations.contentItem.target, models.ContentItem);
+    assert.equal(models.QuizAttempt.associations.question.target, models.QuizQuestion);
+    assert.equal(models.PartnerActivityLog.associations.activity.target, models.PartnerActivity);
+    assert.equal(models.SensoryActivityLog.associations.activity.target, models.SensoryActivity);
+    assert.equal(models.PaymentProviderEvent.associations.storeCheckoutIntent.target, models.StoreCheckoutIntent);
+    assert.equal(models.Payment.associations.storeOrder.target, models.StoreOrder);
+    assert.equal(models.StoreOrder.associations.payment.target, models.Payment);
+    assert.equal(models.StoreOrder.associations.invoice.target, models.Invoice);
+    assert.equal(models.StoreOrder.associations.checkoutIntent.target, models.StoreCheckoutIntent);
+    assert.equal(models.StoreCheckoutIntent.associations.coupon.target, models.Coupon);
+  } finally { await sequelize.close(); }
+});

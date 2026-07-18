@@ -90,7 +90,7 @@ export class AuthManager extends BaseManager {
           displayName: user.displayName || `${firstName || ''} ${lastName || ''}`.trim() || emailAddress.split('@')[0],
           updated: new Date()
         });
-        this.log.info('Synced and updated Firebase user locally:', { emailAddress, firebaseUid });
+        this.log.info('Synced and updated Firebase user locally:', { emailAddress: '[REDACTED]', firebaseUid });
       } else {
         // Create user
         user = await User.create({
@@ -109,7 +109,7 @@ export class AuthManager extends BaseManager {
           inserted: new Date(),
           updated: new Date()
         });
-        this.log.info('Created new Firebase user locally:', { emailAddress, firebaseUid });
+        this.log.info('Created new Firebase user locally:', { emailAddress: '[REDACTED]', firebaseUid });
       }
       return user;
     } catch (error) {

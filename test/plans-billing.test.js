@@ -5,7 +5,7 @@ import { SubscriptionService } from '../src/modules/subscription/subscription.se
 const VIEWER_STAFF = { id: '66666666-6666-4666-a666-666666666666', role: { roleType: 'STAFF' } };
 const VIEWER_MOTHER = { id: '77777777-7777-4777-a777-777777777777', role: { roleType: 'MOTHER' } };
 
-test('SubscriptionService - Plan CRUD, coupons, trial, checkout invoice, entitlements, and renewals run', async () => {
+test('SubscriptionService - Plan CRUD, coupons, trial, direct activation protection, entitlements, and renewals run', async () => {
   const mockPlans = [];
   const mockCoupons = [];
   const mockSubscriptions = [];
@@ -198,17 +198,18 @@ test('SubscriptionService - Plan CRUD, coupons, trial, checkout invoice, entitle
   assert.equal(trialSub.status, 'trialing');
   assert.ok(trialSub.trialEndDate);
 
-  // 4. Upgrade / Subscribe checkout with coupon code
+  // 4. Direct paid activation is blocked; verified Razorpay checkout must be used.
   // Clear mockSubscriptions to avoid "You already have active sub" trial check if any
   mockSubscriptions.length = 0;
 
-  const paidSub = await service.subscribe('77777777-7777-4777-a777-777777777777', premiumPlan.id, 'WELCOME50');
-  assert.equal(paidSub.status, 'active');
+  await assert.rejects(
+    service.subscribe('77777777-7777-4777-a777-777777777777', premiumPlan.id, 'WELCOME50'),
+    /Direct paid subscription activation is disabled/
+  );
+  assert.equal(mockInvoices.length, 0);
 
-  // Verify Invoice generation
-  assert.equal(mockInvoices.length, 1);
-  assert.equal(parseFloat(mockInvoices[0].amount), 1499.50); // 2999 * 50% discount
-  assert.equal(mockInvoices[0].status, 'paid');
+  const paidSub = await service.startTrial('77777777-7777-4777-a777-777777777777', premiumPlan.id);
+  paidSub.status = 'active';
 
   // 5. Entitlement check
   const hasLiveClasses = await service.checkUserEntitlement('77777777-7777-4777-a777-777777777777', 'live_classes');
@@ -227,9 +228,9 @@ test('SubscriptionService - Plan CRUD, coupons, trial, checkout invoice, entitle
   assert.equal(renewedSubs[0].status, 'active');
   assert.ok(new Date(renewedSubs[0].currentPeriodEndDate) > new Date('2026-06-01T00:00:00Z'));
 
-  // Should have generated an additional invoice for renewal amount
-  assert.equal(mockInvoices.length, 2);
-  assert.equal(parseFloat(mockInvoices[1].amount), 2999.00); // full renewal price
+  // Should have generated the renewal invoice amount
+  assert.equal(mockInvoices.length, 1);
+  assert.equal(parseFloat(mockInvoices[0].amount), 2999.00); // full renewal price
 
   // 7. Delete Plan & Coupon
   const planDel = await service.deleteSubscriptionPlan(VIEWER_STAFF, premiumPlan.id);

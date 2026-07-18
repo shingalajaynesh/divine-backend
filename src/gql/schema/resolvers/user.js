@@ -68,10 +68,16 @@ export const userResolvers = {
     shareVitalsWithPartner: (parent) => parent.shareVitalsWithPartner ?? true,
     shareReportsWithPartner: (parent) => parent.shareReportsWithPartner ?? true,
     postpartumPlan: (parent) => parent.postpartumPlan ? JSON.stringify(parent.postpartumPlan) : null,
+    emergencyContacts: (parent) => parent.emergencyContacts ? JSON.stringify(parent.emergencyContacts) : null,
   },
 
   Payment: {
     stripeSessionId: () => null,
+    user: async (parent, args, context) => {
+      if (parent.user) return parent.user;
+      if (!parent.userId) return null;
+      return await context.models.User.findByPk(parent.userId);
+    }
   },
 
   Query: {
@@ -154,6 +160,41 @@ export const userResolvers = {
         return user;
       } catch (err) {
         throw new Error('Invalid JSON format for postpartum plan');
+      }
+    }),
+
+    deleteMyAccount: authenticate(async (parent, args, context) => {
+      const user = context.viewer;
+      const { log } = context;
+      log.info(`Account deletion requested for user: ${user.id}`);
+      
+      // Anonymize user PII
+      user.emailAddress = `deleted_${user.id}@deleted.local`;
+      user.firstName = 'Deleted';
+      user.lastName = 'User';
+      user.displayName = 'Deleted User';
+      user.mobileNo = null;
+      user.firebaseUid = null;
+      user.clerkId = null;
+      user.isActive = false;
+      user.postpartumPlan = null;
+      user.emergencyContacts = null;
+      
+      await user.save();
+      await user.destroy(); // Soft delete via paranoid mode
+      
+      log.info(`Account successfully anonymized and soft-deleted for user: ${user.id}`);
+      return true;
+    }),
+
+    saveEmergencyContacts: authenticate(async (parent, { contactsJson }, context) => {
+      const user = context.viewer;
+      try {
+        user.emergencyContacts = JSON.parse(contactsJson);
+        await user.save();
+        return user;
+      } catch (err) {
+        throw new Error('Invalid JSON format for emergency contacts');
       }
     }),
   }

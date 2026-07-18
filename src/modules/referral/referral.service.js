@@ -16,6 +16,14 @@ export class ReferralService {
     if (!refereeName || !refereeName.trim()) throw new Error('Referee name is required');
     if (!refereePhone || !refereePhone.trim()) throw new Error('Referee phone number is required');
 
+    // Prevent self-referral
+    if (refereeEmail && viewer.emailAddress && refereeEmail.trim().toLowerCase() === viewer.emailAddress.trim().toLowerCase()) {
+      throw new Error('You cannot refer yourself.');
+    }
+    if (refereePhone && viewer.mobileNo && refereePhone.trim() === viewer.mobileNo.trim()) {
+      throw new Error('You cannot refer yourself.');
+    }
+
     return this.models.UserReferral.create({
       id: uuidv4(),
       referrerId: viewer.id,

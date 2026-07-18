@@ -60,7 +60,7 @@ export class SupportService {
   }
 
   async getTickets(userId) {
-    return this.models.SupportTicket.findAll({
+    const tickets = await this.models.SupportTicket.findAll({
       where: { userId },
       include: [
         {
@@ -71,11 +71,17 @@ export class SupportService {
       ],
       order: [['createdAt', 'DESC']]
     });
+    tickets.forEach(ticket => {
+      if (ticket.messages) {
+        ticket.messages = ticket.messages.filter(m => !m.message.startsWith('[INTERNAL]'));
+      }
+    });
+    return tickets;
   }
 
   async getTicketDetails(userId, id) {
     const ticketId = z.string().uuid().parse(id);
-    return this.models.SupportTicket.findOne({
+    const ticket = await this.models.SupportTicket.findOne({
       where: { id: ticketId, userId },
       include: [
         {
@@ -88,6 +94,10 @@ export class SupportService {
         [{ model: this.models.SupportTicketMessage, as: 'messages' }, 'createdAt', 'ASC']
       ]
     });
+    if (ticket && ticket.messages) {
+      ticket.messages = ticket.messages.filter(m => !m.message.startsWith('[INTERNAL]'));
+    }
+    return ticket;
   }
 
   async getStaffTickets(viewer, status) {
