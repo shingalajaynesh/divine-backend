@@ -14,7 +14,9 @@ export class RazorpayClient {
     this.keyId = keyId;
     this.keySecret = keySecret;
     this.timeoutMs = timeoutMs;
-    this.allowMock = isTestEnv() && (!keyId || keyId === 'mock_key_id' || keyId.startsWith('rzp_test'));
+    // In any test environment, always use mock responses.
+    // This prevents live Razorpay HTTP calls when real credentials are injected as CI secrets.
+    this.allowMock = isTestEnv();
   }
 
   assertConfigured() {
